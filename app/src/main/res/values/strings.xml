@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FlowKit</string>
+    <string name="service_description">Ersetzt deine Kürzel (z. B. ;ty) beim Tippen in jeder App, öffnet Launcher-Kürzel (z. B. ;fh) und bremst ausgewählte Social-Media-Apps. Alles wird nur auf diesem Handy verarbeitet – FlowKit hat keine Internet-Berechtigung. Passwortfelder werden ignoriert.</string>
+    <string name="action_save">In Clipboard speichern</string>
+    <string name="action_explain">Erklären</string>
+    <string name="action_summarize">Zusammenfassen</string>
+    <string name="action_translate">Übersetzen</string>
+    <string name="action_quiz">Als Lernfrage</string>
+    <string name="tile_note">Brain Dump</string>
+    <string name="tile_study">Study Mode</string>
+</resources>
