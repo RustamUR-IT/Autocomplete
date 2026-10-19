@@ -52,6 +52,12 @@ class ListActivity : Activity() {
 
         rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         c.addView(rows)
+
+        // Opened with a name to add (e.g. "favourite replies for Lena") → go straight to the editor.
+        if (savedInstanceState == null) intent.getStringExtra("prefill_name")?.let { name ->
+            val existing = data().firstOrNull { it["name"].equals(name, ignoreCase = true) }
+            if (existing != null) edit(existing) else edit(null, mapOf("name" to name, "replies" to intent.getStringExtra("prefill_replies").orEmpty()))
+        }
     }
 
     override fun onResume() {

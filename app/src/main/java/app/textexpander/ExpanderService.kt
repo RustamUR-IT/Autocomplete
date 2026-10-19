@@ -32,14 +32,18 @@ class ExpanderService : AccessibilityService() {
     }
 
     private var suggest: SuggestController? = null
+    private var places: PlaceWatcher? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         suggest = SuggestController(this)
+        places = PlaceWatcher(this).also { it.start() }
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
         suggest?.shutdown()
+        places?.stop()
+        places = null
         suggest = null
         return super.onUnbind(intent)
     }

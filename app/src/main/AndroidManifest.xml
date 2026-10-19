@@ -6,6 +6,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <!-- Needed to list apps (launcher, app picker) and to hand text to an AI assistant app. -->
     <queries>
@@ -40,6 +45,7 @@
         <activity android:name=".ListActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".SuggestActivity" android:exported="false" />
+        <activity android:name=".PlacesActivity" android:exported="false" />
         <activity android:name=".FocusActivity" android:exported="false" android:launchMode="singleTop" />
 
         <activity

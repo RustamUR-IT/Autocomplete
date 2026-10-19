@@ -9,7 +9,7 @@ import java.io.File
 import java.util.concurrent.Executors
 
 /** One suggestion chip: shows [label], replaces the last [replaceLen] typed chars with [insert]. */
-class Suggestion(val label: String, val insert: String, val replaceLen: Int)
+class Suggestion(val label: String, val insert: String, val replaceLen: Int, val strong: Boolean = false)
 
 class ContactInfo(val key: String, val title: String, val pkg: String, val messages: Int, val words: Int, val last: Long)
 
@@ -115,21 +115,32 @@ class SuggestEngine private constructor(private val app: Context) {
     // ── Suggesting ────────────────────────────────────────────────────────
 
     @Synchronized
-    fun suggest(before: String, key: String): List<Suggestion> {
+    /** Favourite replies you set yourself for a person (matched against the chat name). */
+    fun pinnedFor(title: String): List<String> {
+        if (title.isBlank()) return emptyList()
+        return Store.list(app, "pinned").filter {
+            val n = it["name"].orEmpty().trim()
+            n.isNotEmpty() && (title.equals(n, ignoreCase = true) || title.contains(n, ignoreCase = true))
+        }.flatMap { r -> r["replies"].orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() } }
+    }
+
+    @Synchronized
+    fun suggest(before: String, key: String, title: String = ""): List<Suggestion> {
         val c = ctxs[key]
         val out = ArrayList<Suggestion>()
 
-        // 1) Whole sentence you already sent to this person
+        // 1) Whole sentence: your favourites for this person first, then what you sent before
         val typed = before.trimStart()
-        if (c != null && typed.length >= 3) {
-            c.msgs.values
-                .filter { it.text.length > typed.length && it.text.startsWith(typed, ignoreCase = true) }
-                .maxByOrNull { msgScore(it) }
-                ?.let { m ->
-                    val rest = m.text.substring(typed.length)
-                    val shown = rest.trim()
-                    out += Suggestion("…" + shown.take(26) + if (shown.length > 26) "…" else "", rest, 0)
-                }
+        if (typed.length >= 2) {
+            val fromPinned = pinnedFor(title).firstOrNull { it.length > typed.length && it.startsWith(typed, ignoreCase = true) }
+            val fromHistory = if (typed.length >= 3) c?.msgs?.values
+                ?.filter { it.text.length > typed.length && it.text.startsWith(typed, ignoreCase = true) }
+                ?.maxByOrNull { msgScore(it) }?.text else null
+            (fromPinned ?: fromHistory)?.let { full ->
+                val rest = full.substring(typed.length)
+                val shown = rest.trim()
+                out += Suggestion("…" + shown.take(26) + if (shown.length > 26) "…" else "", rest, 0, strong = true)
+            }
         }
 
         // 2) Word completion / next word
@@ -178,11 +189,14 @@ class SuggestEngine private constructor(private val app: Context) {
 
     /** Your most used messages to this person – shown when the field is empty. */
     @Synchronized
-    fun quickReplies(key: String): List<Suggestion> {
-        val c = ctxs[key] ?: return emptyList()
-        return c.msgs.values.sortedByDescending { msgScore(it) }.take(3).map {
-            Suggestion(if (it.text.length > 28) it.text.take(27) + "…" else it.text, it.text, 0)
-        }
+    fun quickReplies(key: String, title: String = ""): List<Suggestion> {
+        fun short(t: String) = if (t.length > 28) t.take(27) + "…" else t
+        val pinned = pinnedFor(title).take(4)
+        val learned = ctxs[key]?.msgs?.values?.sortedByDescending { msgScore(it) }?.map { it.text }.orEmpty()
+            .filter { l -> pinned.none { it.equals(l, ignoreCase = true) } }
+            .take((4 - pinned.size).coerceIn(0, 3))
+        return pinned.map { Suggestion(short(it), it, 0, strong = true) } +
+            learned.map { Suggestion(short(it), it, 0) }
     }
 
     // ── Info & management (settings screen) ───────────────────────────────

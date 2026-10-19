@@ -195,6 +195,31 @@ object Kinds {
         titleOf = targetTitle, subOf = targetSub,
     )
 
-    private val all = listOf(snippets, clips, launchers, notes, cheat, studyapps, alts, blocked, nolearn).associateBy { it.id }
+    val pinned = Kind(
+        id = "pinned",
+        title = "Lieblingsantworten",
+        help = "Pro Person feste Antworten – erscheinen in ihrem Chat immer zuerst (rote Chips), auch ohne Lernphase. Der Name muss so geschrieben sein wie oben im Chat (ein Teil reicht, z. B. „Lena“).",
+        fields = listOf(
+            Field("name", "Name wie oben im Chat", hint = "Lena"),
+            Field("replies", "Antworten – eine pro Zeile", hint = "ily pookie\nbin gleich da\nschlaf gut ❤️", multiline = true),
+        ),
+        defaults = emptyList(),
+        fullSub = true,
+        sort = { l -> l.sortedBy { it["name"].orEmpty().lowercase() } },
+        titleOf = { _, r -> "⭐ " + r["name"].orEmpty() },
+        subOf = { _, r -> r["replies"].orEmpty() },
+    )
+
+    val places = Kind(
+        id = "places",
+        title = "Orte",
+        help = "WLAN-Name → was passieren soll.",
+        fields = listOf(Field("label", "Ort"), Field("ssid", "WLAN-Name"), Field("target", "Aktion", target = true)),
+        defaults = emptyList(),
+        titleOf = { _, r -> r["label"].orEmpty() },
+        subOf = { c, r -> "WLAN „${r["ssid"]}“ → " + Launch.describe(c, r["target"].orEmpty()) },
+    )
+
+    private val all = listOf(snippets, clips, launchers, notes, cheat, studyapps, alts, blocked, nolearn, pinned, places).associateBy { it.id }
     fun get(id: String?): Kind? = all[id]
 }

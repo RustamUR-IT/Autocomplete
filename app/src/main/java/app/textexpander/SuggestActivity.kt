@@ -72,6 +72,16 @@ class SuggestActivity : Activity() {
             13f, muted = true,
         )
 
+        c.section("⭐ Lieblingsantworten")
+        c.card {
+            label("Feste Antworten pro Person, sofort und immer zuerst – z. B. bei Lena: „ily pookie“.", 13f, muted = true, topDp = 0)
+            val pinned = Store.list(context, "pinned")
+            if (pinned.isNotEmpty()) label(pinned.joinToString("\n") { "⭐ ${it["name"]}: " + it["replies"].orEmpty().lines().first() + if (it["replies"].orEmpty().lines().size > 1) " …" else "" }, 13f, topDp = 6)
+            pill("Lieblingsantworten bearbeiten (${pinned.size})", primary = true) {
+                ListActivity.open(this@SuggestActivity, "pinned")
+            }
+        }
+
         c.section("Datenschutz")
         c.card {
             label("Passwortfelder werden nie gelesen. Nichts verlässt das Handy – FlowKit hat keine Internet-Berechtigung.", 13f, muted = true, topDp = 0)
@@ -105,6 +115,11 @@ class SuggestActivity : Activity() {
                         .setMessage(if (msgs.isEmpty()) "Noch keine gesendeten Nachrichten gelernt." else "Häufigste Antworten:\n\n• " + msgs.joinToString("\n• "))
                         .setPositiveButton("OK", null)
                         .setNegativeButton("Vergessen") { _, _ -> engine.deleteContact(ct.key); render() }
+                        .setNeutralButton("⭐ Favoriten") { _, _ ->
+                            startActivity(ListActivity.intent(this@SuggestActivity, "pinned")
+                                .putExtra("prefill_name", name)
+                                .putExtra("prefill_replies", msgs.take(3).joinToString("\n")))
+                        }
                         .show()
                 }
             }

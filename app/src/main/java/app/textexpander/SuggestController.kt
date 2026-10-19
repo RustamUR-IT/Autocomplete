@@ -94,7 +94,7 @@ class SuggestController(private val svc: ExpanderService) {
     }
 
     private fun showReplies(n: AccessibilityNodeInfo) {
-        val list = engine.quickReplies(ctxKey)
+        val list = engine.quickReplies(ctxKey, ctxTitle)
         note(list.size)
         show(list, n)
     }
@@ -122,7 +122,7 @@ class SuggestController(private val svc: ExpanderService) {
 
         val before = text.substring(0, cursor.coerceIn(0, text.length))
         val list = if (!showOn()) emptyList()
-                   else if (before.isBlank()) engine.quickReplies(ctxKey) else engine.suggest(before, ctxKey)
+                   else if (before.isBlank()) engine.quickReplies(ctxKey, ctxTitle) else engine.suggest(before, ctxKey, ctxTitle)
         note(list.size)
         show(list, n)
     }
@@ -237,7 +237,7 @@ class SuggestController(private val svc: ExpanderService) {
         val r = root!!
         val b = bar!!
         b.removeAllViews()
-        list.forEach { s -> b.addView(chip(s, s.replaceLen == 0 && s.insert.length > 12)) }
+        list.forEach { s -> b.addView(chip(s, s.strong)) }
 
         val screenW = svc.resources.displayMetrics.widthPixels
         r.measure(

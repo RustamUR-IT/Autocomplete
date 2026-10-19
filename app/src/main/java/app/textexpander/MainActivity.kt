@@ -67,6 +67,9 @@ class MainActivity : Activity() {
         c.tool("💡  Smarte Vorschläge", "Lernt, wie du schreibst – pro Person. ${SuggestEngine.get(this).contacts().size} Chats gelernt") {
             startActivity(Intent(this, SuggestActivity::class.java))
         }
+        c.tool("📍  Orts-Modi", "Gym-WLAN → Workout Mode · FH-WLAN → Nicht stören · ${Store.list(this, "places").size} Orte") {
+            startActivity(Intent(this, PlacesActivity::class.java))
+        }
         c.tool("📋  Smart Clipboard", "${Store.list(this, "clips").size} gespeicherte Texte, Links, Uni-Sachen und Code") {
             ListActivity.open(this, "clips")
         }
