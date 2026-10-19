@@ -28,6 +28,7 @@ Funktioniert mit jeder Tastatur. Keine Internet-Berechtigung – alles bleibt au
 
 | Funktion | So benutzt du sie |
 |---|---|
+| Smarte Vorschläge | Lernt lokal, wie du schreibst – pro Person/Chat. Chips über dem Eingabefeld: Wort fertig, nächstes Wort, ganze Sätze, Schnellantworten bei leerem Feld |
 | Text-Kürzel | `;mail` `;adr` `;ty` `;lg` `;mfg` `;hallo` `;krank` `;main` `;pf` `;sf` `;for` … in jeder App tippen |
 | Dynamische Snippets | `;date` `;today` `;now` `;week` `;iso` `;morgen` – Platzhalter: `{date} {isodate} {time} {weekday} {week} {tomorrow} {cursor}` |
 | Smart Clipboard | Kategorien Texte / Links / Uni / Code. Antippen = kopieren. Text markieren → „In Clipboard speichern“ oder aus jeder App teilen |

@@ -186,6 +186,15 @@ object Kinds {
         titleOf = targetTitle, subOf = targetSub,
     )
 
-    private val all = listOf(snippets, clips, launchers, notes, cheat, studyapps, alts, blocked).associateBy { it.id }
+    val nolearn = Kind(
+        id = "nolearn",
+        title = "Nicht lernen in …",
+        help = "In diesen Apps lernt FlowKit nichts (z. B. Banking, Arbeit). Mit „App wählen“ hinzufügen.",
+        fields = listOf(label, target),
+        defaults = emptyList(),
+        titleOf = targetTitle, subOf = targetSub,
+    )
+
+    private val all = listOf(snippets, clips, launchers, notes, cheat, studyapps, alts, blocked, nolearn).associateBy { it.id }
     fun get(id: String?): Kind? = all[id]
 }
