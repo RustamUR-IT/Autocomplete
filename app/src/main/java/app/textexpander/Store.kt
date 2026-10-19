@@ -35,6 +35,8 @@ object Store {
 
     fun add(ctx: Context, id: String, rec: Rec) = save(ctx, id, list(ctx, id) + rec)
 
+    fun clearCache() = synchronized(cache) { cache.clear() }
+
     private fun parse(raw: String): List<Rec> = try {
         val arr = JSONArray(raw)
         (0 until arr.length()).map { i ->

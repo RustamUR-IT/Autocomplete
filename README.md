@@ -31,6 +31,9 @@ Funktioniert mit jeder Tastatur. Keine Internet-Berechtigung – alles bleibt au
 | Smarte Vorschläge | Lernt lokal, wie du schreibst – pro Person/Chat. Chips über dem Eingabefeld: Wort fertig, nächstes Wort, ganze Sätze, Schnellantworten bei leerem Feld |
 | Lieblingsantworten | Pro Person feste Antworten (z. B. Lena → „ily pookie“), erscheinen in ihrem Chat immer zuerst |
 | Orts-Modi | WLAN als Ort speichern: Gym → Workout Mode (1 Tipp), FH → „Nicht stören“ automatisch |
+| Funktionen an/aus | Einstellungen → Funktionen: jede Funktion einzeln abschaltbar (verschwindet auch aus Textmenü & Kacheln) |
+| Backup | Einstellungen → Backup speichern / Wiederherstellen (JSON-Datei, z. B. auf Google Drive) |
+| Doomscroll-Limit | Standard aus. Nach X Minuten am Stück in gebremsten Apps ein Hinweis mit Alternativen |
 | Text-Kürzel | `;mail` `;adr` `;ty` `;lg` `;mfg` `;hallo` `;krank` `;main` `;pf` `;sf` `;for` … in jeder App tippen |
 | Dynamische Snippets | `;date` `;today` `;now` `;week` `;iso` `;morgen` – Platzhalter: `{date} {isodate} {time} {weekday} {week} {tomorrow} {cursor}` |
 | Smart Clipboard | Kategorien Texte / Links / Uni / Code. Antippen = kopieren. Text markieren → „In Clipboard speichern“ oder aus jeder App teilen |

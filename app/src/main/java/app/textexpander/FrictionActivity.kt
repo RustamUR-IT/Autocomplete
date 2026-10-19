@@ -18,7 +18,8 @@ class FrictionActivity : Activity() {
     private val tick = object : Runnable {
         override fun run() {
             val b = go ?: return
-            b.text = if (left > 0) "Trotzdem öffnen ($left)" else "Trotzdem öffnen"
+            val word = if (intent.getIntExtra("doom", -1) >= 0) "Weiter scrollen" else "Trotzdem öffnen"
+            b.text = if (left > 0) "$word ($left)" else word
             b.alpha = if (left > 0) 0.4f else 1f
             if (left > 0) {
                 left--
@@ -53,9 +54,16 @@ class FrictionActivity : Activity() {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
         } catch (e: Exception) { pkg }
 
-        val c = page("Kurz durchatmen")
-        c.label("Du wolltest $appName öffnen.", 22f, bold = true, topDp = 28)
-        c.label("Ist das gerade wirklich, was du willst – oder nur Gewohnheit?", 15f, muted = true)
+        val doomMinutes = i.getIntExtra("doom", -1)
+        val doom = doomMinutes >= 0
+        val c = page(if (doom) "Zeit um" else "Kurz durchatmen")
+        if (doom) {
+            c.label("Schon $doomMinutes Minuten auf $appName.", 22f, bold = true, topDp = 28)
+            c.label("Lust auf was anderes?", 15f, muted = true)
+        } else {
+            c.label("Du wolltest $appName öffnen.", 22f, bold = true, topDp = 28)
+            c.label("Ist das gerade wirklich, was du willst – oder nur Gewohnheit?", 15f, muted = true)
+        }
 
         c.section("Lieber stattdessen")
         for (r in Store.list(this, "alts")) {
@@ -67,9 +75,11 @@ class FrictionActivity : Activity() {
         }
 
         c.section(" ")
-        c.pill("Nein, zurück", primary = true) { resisted(); goHome() }
+        c.pill(if (doom) "Schluss für jetzt" else "Nein, zurück", primary = true) { resisted(); goHome() }
         go = c.pill("") {
-            if (left <= 0) {
+            if (left <= 0 && doom) {
+                finish()   // back into the app; the service asks again after the snooze time
+            } else if (left <= 0) {
                 val minutes = Store.getInt(this, "friction_pass", 5)
                 ExpanderService.passUntil[pkg] = System.currentTimeMillis() + minutes * 60_000L
                 packageManager.getLaunchIntentForPackage(pkg)?.let {
@@ -81,7 +91,7 @@ class FrictionActivity : Activity() {
         val count = Store.getInt(this, "friction_resisted", 0)
         if (count > 0) c.label("Schon $count× widerstanden 💪", 13f, muted = true, topDp = 16)
 
-        left = Store.getInt(this, "friction_delay", 10)
+        left = if (doom) 5 else Store.getInt(this, "friction_delay", 10)
         handler.post(tick)
     }
 

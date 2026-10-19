@@ -223,6 +223,19 @@ class SuggestEngine private constructor(private val app: Context) {
 
     fun flushToDisk() { handler.removeCallbacks(saveTask); saveNow() }
 
+    /** Restore from a backup: replace everything learned with [json] (null = empty). */
+    @Synchronized
+    fun replaceWith(json: String?) {
+        handler.removeCallbacks(saveTask)
+        uni.clear(); forms.clear(); bi.clear(); tri.clear(); ctxs.clear()
+        if (json != null) {
+            file.writeText(json)
+            load()
+        } else {
+            file.delete()
+        }
+    }
+
     // ── Persistence ───────────────────────────────────────────────────────
 
     private fun counts(m: Map<String, Int>) = JSONObject().apply { m.forEach { (k, v) -> put(k, v) } }

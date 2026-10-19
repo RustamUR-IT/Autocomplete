@@ -122,6 +122,7 @@ class PlaceWatcher(private val ctx: Context) {
         Store.list(ctx, "places").filter { it["ssid"].orEmpty().trim().equals(ssid, ignoreCase = true) }
 
     private fun enter(ssid: String) {
+        if (!Features.on(ctx, "places")) return
         for (r in rulesFor(ssid)) {
             val place = r["label"].orEmpty().ifBlank { ssid }
             when (val action = r["target"].orEmpty()) {

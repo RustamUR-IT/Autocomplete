@@ -48,9 +48,9 @@ class SuggestController(private val svc: ExpanderService) {
     private var fieldKey = ""
     private var lastText = ""
 
-    private fun showOn() = Store.getBool(svc, "suggest_on", true)
+    private fun showOn() = Features.on(svc, "suggest") && Store.getBool(svc, "suggest_on", true)
 
-    private fun learnAllowed() = Store.getBool(svc, "learn_on", true) &&
+    private fun learnAllowed() = Features.on(svc, "suggest") && Store.getBool(svc, "learn_on", true) &&
         pkg.isNotEmpty() && (pkg != svc.packageName || testMode) &&
         Store.list(svc, "nolearn").none { it["target"] == "app:$pkg" }
 

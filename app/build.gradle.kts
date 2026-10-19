@@ -11,8 +11,8 @@ android {
         applicationId = "app.textexpander"
         minSdk = 29
         targetSdk = 35
-        versionCode = 6
-        versionName = "3.3"
+        versionCode = 7
+        versionName = "3.4"
     }
 
     // On GitHub the workflow provides a fixed key (kept in the Actions cache, never in the repo).

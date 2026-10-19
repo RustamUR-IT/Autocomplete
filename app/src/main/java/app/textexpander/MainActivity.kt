@@ -52,40 +52,42 @@ class MainActivity : Activity() {
             val left = ((FocusService.endAt - System.currentTimeMillis()) / 60000).coerceAtLeast(0)
             c.pill("⏱  ${FocusService.label(m)} läuft – noch $left min", primary = true) { Launch.open(this, "action:focus") }
         }
-        c.row {
-            pill("📚 Study") { Launch.open(this@MainActivity, "action:study") }
-            pill("🏋️ Workout") { Launch.open(this@MainActivity, "action:workout") }
-            pill("📝 Notiz") { Launch.open(this@MainActivity, "action:note") }
+        val focusOn = Features.on(this, "focus")
+        val notesOn = Features.on(this, "notes")
+        if (focusOn || notesOn) c.row {
+            if (focusOn) pill("📚 Study") { Launch.open(this@MainActivity, "action:study") }
+            if (focusOn) pill("🏋️ Workout") { Launch.open(this@MainActivity, "action:workout") }
+            if (notesOn) pill("📝 Notiz") { Launch.open(this@MainActivity, "action:note") }
         }
 
         // ── Tools ─────────────────────────────────────────────────────────
         c.section("Werkzeuge")
         val snippets = Store.list(this, "snippets")
-        c.tool("⌨️  Text-Kürzel", "${snippets.size} Kürzel · " + snippets.take(5).joinToString(" ") { it["abbr"].orEmpty() } + " …") {
+        if (Features.on(this, "expander")) c.tool("⌨️  Text-Kürzel", "${snippets.size} Kürzel · " + snippets.take(5).joinToString(" ") { it["abbr"].orEmpty() } + " …") {
             ListActivity.open(this, "snippets")
         }
-        c.tool("💡  Smarte Vorschläge", "Lernt, wie du schreibst – pro Person. ${SuggestEngine.get(this).contacts().size} Chats gelernt") {
+        if (Features.on(this, "suggest")) c.tool("💡  Smarte Vorschläge", "Lernt, wie du schreibst – pro Person. ${SuggestEngine.get(this).contacts().size} Chats gelernt") {
             startActivity(Intent(this, SuggestActivity::class.java))
         }
-        c.tool("📍  Orts-Modi", "Gym-WLAN → Workout Mode · FH-WLAN → Nicht stören · ${Store.list(this, "places").size} Orte") {
+        if (Features.on(this, "places")) c.tool("📍  Orts-Modi", "Gym-WLAN → Workout Mode · FH-WLAN → Nicht stören · ${Store.list(this, "places").size} Orte") {
             startActivity(Intent(this, PlacesActivity::class.java))
         }
-        c.tool("📋  Smart Clipboard", "${Store.list(this, "clips").size} gespeicherte Texte, Links, Uni-Sachen und Code") {
+        if (Features.on(this, "clipboard")) c.tool("📋  Smart Clipboard", "${Store.list(this, "clips").size} gespeicherte Texte, Links, Uni-Sachen und Code") {
             ListActivity.open(this, "clips")
         }
-        c.tool("🚀  Quick Launcher", Store.list(this, "launchers").joinToString(" ") { it["abbr"].orEmpty() }) {
+        if (Features.on(this, "launcher")) c.tool("🚀  Quick Launcher", Store.list(this, "launchers").joinToString(" ") { it["abbr"].orEmpty() }) {
             ListActivity.open(this, "launchers")
         }
-        c.tool("🎯  Fokus-Modi", "Study Mode (DND + Timer + Lern-Apps) · Workout Mode (Musik + Timer + Satzpausen)") {
+        if (Features.on(this, "focus")) c.tool("🎯  Fokus-Modi", "Study Mode (DND + Timer + Lern-Apps) · Workout Mode (Musik + Timer + Satzpausen)") {
             Launch.open(this, "action:focus")
         }
-        c.tool("🧠  Brain Dump", "${Store.list(this, "notes").size} Notizen · auch als Schnelleinstellungs-Kachel") {
+        if (Features.on(this, "notes")) c.tool("🧠  Brain Dump", "${Store.list(this, "notes").size} Notizen · auch als Schnelleinstellungs-Kachel") {
             ListActivity.open(this, "notes")
         }
-        c.tool("💻  C-Spickzettel", "scanf, printf, Arrays, Pointer, Strings, Schleifen, struct … offline") {
+        if (Features.on(this, "cheat")) c.tool("💻  C-Spickzettel", "scanf, printf, Arrays, Pointer, Strings, Schleifen, struct … offline") {
             ListActivity.open(this, "cheat")
         }
-        c.tool("🛑  Habit Friction & Einstellungen", "Social Media bremsen · Assistent für Text-Aktionen") {
+        c.tool("⚙️  Einstellungen", "Funktionen an/aus · Backup · Habit Friction · Text-Aktionen") {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 

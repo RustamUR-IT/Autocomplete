@@ -3,8 +3,13 @@ package app.textexpander
 import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.content.Context
+import android.content.BroadcastReceiver
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -38,12 +43,69 @@ class ExpanderService : AccessibilityService() {
         super.onServiceConnected()
         suggest = SuggestController(this)
         places = PlaceWatcher(this).also { it.start() }
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_USER_PRESENT) }
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        else registerReceiver(screenReceiver, filter)
+    }
+
+    // ── Doomscroll limit ──────────────────────────────────────────────────
+
+    private val doomHandler = Handler(Looper.getMainLooper())
+    private var fgPkg = ""
+    private var fgSince = 0L
+    private var nextDoomAt = 0L
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            if (i.action == Intent.ACTION_SCREEN_OFF) {
+                fgPkg = ""
+                doomHandler.removeCallbacks(doomCheck)
+            } else {
+                rootInActiveWindow?.packageName?.toString()?.let { trackForeground(it) }
+            }
+        }
+    }
+
+    private val doomCheck = object : Runnable {
+        override fun run() {
+            if (!Features.on(this@ExpanderService, "doom") || fgPkg.isEmpty()) return
+            val now = System.currentTimeMillis()
+            if (now >= nextDoomAt) {
+                val minutes = ((now - fgSince) / 60_000).toInt()
+                startActivity(
+                    Intent(this@ExpanderService, FrictionActivity::class.java)
+                        .putExtra("pkg", fgPkg).putExtra("doom", minutes)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                )
+                nextDoomAt = now + Store.getInt(this@ExpanderService, "doom_snooze", 5) * 60_000L
+            }
+            doomHandler.postDelayed(this, 30_000)
+        }
+    }
+
+    /** Remembers which app is in front and since when (only blocked apps are timed). */
+    private fun trackForeground(pkg: String) {
+        if (pkg == packageName || pkg == "com.android.systemui") return
+        val ime = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).orEmpty()
+        if (ime.substringBefore('/') == pkg) return
+        val timed = Features.on(this, "doom") && Store.list(this, "blocked").any { it["target"] == "app:$pkg" }
+        val newPkg = if (timed) pkg else ""
+        if (newPkg == fgPkg) return
+        fgPkg = newPkg
+        doomHandler.removeCallbacks(doomCheck)
+        if (newPkg.isNotEmpty()) {
+            fgSince = System.currentTimeMillis()
+            nextDoomAt = fgSince + Store.getInt(this, "doom_min", 10) * 60_000L
+            doomHandler.postDelayed(doomCheck, 30_000)
+        }
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
         suggest?.shutdown()
         places?.stop()
         places = null
+        doomHandler.removeCallbacks(doomCheck)
+        try { unregisterReceiver(screenReceiver) } catch (e: Exception) { }
         suggest = null
         return super.onUnbind(intent)
     }
@@ -98,8 +160,8 @@ class ExpanderService : AccessibilityService() {
                 }
             }
         }
-        consider(Store.list(this, "snippets"), false)
-        consider(Store.list(this, "launchers"), true)
+        if (Features.on(this, "expander")) consider(Store.list(this, "snippets"), false)
+        if (Features.on(this, "launcher")) consider(Store.list(this, "launchers"), true)
         val match = best ?: return false
 
         val abbr = match["abbr"].orEmpty()
@@ -137,7 +199,8 @@ class ExpanderService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
         if (pkg == packageName) return
         suggest?.onWindow(pkg)
-        if (!Store.getBool(this, "friction_on", true)) return
+        trackForeground(pkg)
+        if (!Features.on(this, "friction")) return
         val blocked = Store.list(this, "blocked").any { it["target"] == "app:$pkg" }
         if (!blocked) return
 
