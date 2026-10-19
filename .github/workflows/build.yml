@@ -62,8 +62,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk FlowKit.apk
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest FlowKit.apk \
-            --title "FlowKit – neuester Build" \
-            --notes "Build #${{ github.run_number }} · FlowKit.apk herunterladen und auf dem Handy öffnen – installiert sich über die alte Version." \
-            --target "${{ github.sha }}" --latest
+          NOTES="Build #${{ github.run_number }} · FlowKit.apk herunterladen und auf dem Handy öffnen – installiert sich über die alte Version."
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest FlowKit.apk --clobber
+            gh release edit latest --notes "$NOTES"
+          else
+            gh release create latest FlowKit.apk --title "FlowKit – neuester Build" \
+              --notes "$NOTES" --target "${{ github.sha }}" --latest
+          fi
