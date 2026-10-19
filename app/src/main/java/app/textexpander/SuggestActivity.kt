@@ -47,7 +47,11 @@ class SuggestActivity : Activity() {
             toggle("Aus meinem Schreiben lernen", Store.getBool(context, "learn_on", true)) {
                 Store.putBool(context, "learn_on", it)
             }
-            label("${engine.wordCount()} Wörter · ${contacts.size} Chats & Kontakte gelernt", 13f, muted = true, topDp = 8)
+            toggle("Antworten auf Nachrichten lernen", Store.getBool(context, "pairs_on", true)) {
+                Store.putBool(context, "pairs_on", it)
+            }
+            label("Liest dafür die letzte Nachricht, die du im Chat bekommen hast – nur auf dem Handy.", 12f, muted = true, topDp = 0)
+            label("${engine.wordCount()} Wörter · ${engine.pairCount()} Antwort-Paare · ${contacts.size} Chats gelernt", 13f, muted = true, topDp = 8)
         }
 
         c.section("🧪 Test")
@@ -66,6 +70,7 @@ class SuggestActivity : Activity() {
         c.label(
             "• Beim Tippen: Wort fertig schreiben und nächstes Wort vorschlagen – so, wie du schreibst.\n" +
                 "• Pro Person: Was du einer Person öfter schreibst, steht bei ihr weiter vorne.\n" +
+                "• ↩ Antwort-Paare: Schreibt sie „gute Nacht“, kommt das, was du ihr darauf sonst antwortest.\n" +
                 "• Leeres Feld im Chat: deine häufigsten Antworten an genau diese Person.\n" +
                 "• Rote Chips: ganzer Satz, den du dieser Person schon geschrieben hast.\n" +
                 "• Am Anfang ist es leer. Nach ein paar Tagen Schreiben wird es spürbar besser.",

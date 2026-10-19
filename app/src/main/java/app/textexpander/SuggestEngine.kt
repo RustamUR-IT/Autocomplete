@@ -22,10 +22,14 @@ class SuggestEngine private constructor(private val app: Context) {
 
     private class Msg(val text: String, var n: Int, var last: Long)
 
+    /** "They wrote [inText] → you answered [reply]". */
+    private class PairRec(val inNorm: String, val inText: String, val reply: String, var n: Int, var last: Long)
+
     private class Ctx(var title: String) {
         val uni = HashMap<String, Int>()
         val bi = HashMap<String, HashMap<String, Int>>()
         val msgs = HashMap<String, Msg>()
+        val pairs = ArrayList<PairRec>()
         var last = 0L
     }
 
@@ -33,6 +37,22 @@ class SuggestEngine private constructor(private val app: Context) {
         private val WORD = Regex("[\\p{L}\\p{N}][\\p{L}\\p{N}'’\\-]*")
         private val PREFIX = Regex("[\\p{L}\\p{N}'’\\-]*$")
         private val SENTENCE = Regex("[.!?\\n]+")
+        private val NON_WORD = Regex("[^\\p{L}\\p{N} ]")
+        private val SPACES = Regex("\\s+")
+
+        /** Lower-case words only; emoji-only messages keep their emoji so "❤️" still matches "❤️". */
+        fun norm(s: String): String {
+            val n = s.lowercase().replace(NON_WORD, " ").replace(SPACES, " ").trim()
+            return n.ifEmpty { s.trim() }
+        }
+
+        private fun similarity(a: String, b: String): Double {
+            if (a == b) return 1.0
+            val ta = a.split(' ').filter { it.isNotEmpty() }.toSet()
+            val tb = b.split(' ').filter { it.isNotEmpty() }.toSet()
+            if (ta.isEmpty() || tb.isEmpty()) return 0.0
+            return ta.intersect(tb).size.toDouble() / ta.union(tb).size
+        }
 
         @Volatile private var instance: SuggestEngine? = null
         fun get(ctx: Context): SuggestEngine =
@@ -44,6 +64,7 @@ class SuggestEngine private constructor(private val app: Context) {
     private val bi = HashMap<String, HashMap<String, Int>>()
     private val tri = HashMap<String, HashMap<String, Int>>()
     private val ctxs = HashMap<String, Ctx>()
+    private val globalPairs = ArrayList<PairRec>()
 
     private val file = File(app.filesDir, "suggest.json")
     private val handler = Handler(Looper.getMainLooper())
@@ -112,6 +133,56 @@ class SuggestEngine private constructor(private val app: Context) {
         return m.n * 2.0 + 5.0 / (1.0 + days)
     }
 
+    // ── Reply pairs ───────────────────────────────────────────────────────
+
+    private fun addPair(list: ArrayList<PairRec>, ni: String, incoming: String, reply: String, cap: Int, now: Long) {
+        val existing = list.firstOrNull { it.inNorm == ni && it.reply.equals(reply, ignoreCase = true) }
+        if (existing != null) { existing.n++; existing.last = now; return }
+        list += PairRec(ni, incoming.take(200), reply, 1, now)
+        if (list.size > cap) list.minByOrNull { pairScoreBase(it) }?.let { list.remove(it) }
+    }
+
+    private fun pairScoreBase(p: PairRec): Double {
+        val days = (System.currentTimeMillis() - p.last) / 86_400_000.0
+        return p.n * 0.6 + 2.0 / (1.0 + days)
+    }
+
+    /** Remember that you answered [incoming] with [reply] in this chat. */
+    @Synchronized
+    fun learnPair(key: String, title: String, incoming: String, reply: String) {
+        val r = reply.trim()
+        if (incoming.isBlank() || r.length !in 1..300) return
+        val now = System.currentTimeMillis()
+        val ni = norm(incoming)
+        val c = ctxs.getOrPut(key) { Ctx(title) }
+        addPair(c.pairs, ni, incoming, r, 250, now)
+        addPair(globalPairs, ni, incoming, r, 600, now)
+        handler.removeCallbacks(saveTask)
+        handler.postDelayed(saveTask, 5000)
+    }
+
+    /** What you usually answer to a message like [incoming] – this person first, others as fallback. */
+    @Synchronized
+    fun repliesTo(key: String, incoming: String?): List<String> {
+        if (incoming.isNullOrBlank()) return emptyList()
+        val ni = norm(incoming)
+        val scored = HashMap<String, Pair<String, Double>>()
+        fun consider(list: List<PairRec>, weight: Double) {
+            for (p in list) {
+                val sim = similarity(ni, p.inNorm)
+                if (sim < 0.5) continue
+                val score = weight * (sim * 3.0 + pairScoreBase(p))
+                val k = p.reply.lowercase()
+                if ((scored[k]?.second ?: 0.0) < score) scored[k] = p.reply to score
+            }
+        }
+        consider(ctxs[key]?.pairs.orEmpty(), 1.0)
+        consider(globalPairs, 0.4)
+        return scored.values.sortedByDescending { it.second }.map { it.first }.take(3)
+    }
+
+    @Synchronized fun pairCount() = globalPairs.size
+
     // ── Suggesting ────────────────────────────────────────────────────────
 
     @Synchronized
@@ -125,14 +196,15 @@ class SuggestEngine private constructor(private val app: Context) {
     }
 
     @Synchronized
-    fun suggest(before: String, key: String, title: String = ""): List<Suggestion> {
+    fun suggest(before: String, key: String, title: String = "", incoming: String? = null): List<Suggestion> {
         val c = ctxs[key]
         val out = ArrayList<Suggestion>()
 
         // 1) Whole sentence: your favourites for this person first, then what you sent before
         val typed = before.trimStart()
         if (typed.length >= 2) {
-            val fromPinned = pinnedFor(title).firstOrNull { it.length > typed.length && it.startsWith(typed, ignoreCase = true) }
+            val fromPairs = repliesTo(key, incoming).firstOrNull { it.length > typed.length && it.startsWith(typed, ignoreCase = true) }
+            val fromPinned = fromPairs ?: pinnedFor(title).firstOrNull { it.length > typed.length && it.startsWith(typed, ignoreCase = true) }
             val fromHistory = if (typed.length >= 3) c?.msgs?.values
                 ?.filter { it.text.length > typed.length && it.text.startsWith(typed, ignoreCase = true) }
                 ?.maxByOrNull { msgScore(it) }?.text else null
@@ -189,14 +261,16 @@ class SuggestEngine private constructor(private val app: Context) {
 
     /** Your most used messages to this person – shown when the field is empty. */
     @Synchronized
-    fun quickReplies(key: String, title: String = ""): List<Suggestion> {
+    fun quickReplies(key: String, title: String = "", incoming: String? = null): List<Suggestion> {
         fun short(t: String) = if (t.length > 28) t.take(27) + "…" else t
-        val pinned = pinnedFor(title).take(4)
-        val learned = ctxs[key]?.msgs?.values?.sortedByDescending { msgScore(it) }?.map { it.text }.orEmpty()
-            .filter { l -> pinned.none { it.equals(l, ignoreCase = true) } }
-            .take((4 - pinned.size).coerceIn(0, 3))
-        return pinned.map { Suggestion(short(it), it, 0, strong = true) } +
-            learned.map { Suggestion(short(it), it, 0) }
+        val out = LinkedHashMap<String, Suggestion>()
+        // 1) answers to the message they just sent  2) your favourites  3) what you often write them
+        for (r in repliesTo(key, incoming)) out.putIfAbsent(r.lowercase(), Suggestion("↩ " + short(r), r, 0, strong = true))
+        for (r in pinnedFor(title)) out.putIfAbsent(r.lowercase(), Suggestion(short(r), r, 0, strong = true))
+        ctxs[key]?.msgs?.values?.sortedByDescending { msgScore(it) }?.forEach {
+            out.putIfAbsent(it.text.lowercase(), Suggestion(short(it.text), it.text, 0))
+        }
+        return out.values.take(4)
     }
 
     // ── Info & management (settings screen) ───────────────────────────────
@@ -217,7 +291,7 @@ class SuggestEngine private constructor(private val app: Context) {
 
     @Synchronized
     fun clear() {
-        uni.clear(); forms.clear(); bi.clear(); tri.clear(); ctxs.clear()
+        uni.clear(); forms.clear(); bi.clear(); tri.clear(); ctxs.clear(); globalPairs.clear()
         saveNow()
     }
 
@@ -227,7 +301,7 @@ class SuggestEngine private constructor(private val app: Context) {
     @Synchronized
     fun replaceWith(json: String?) {
         handler.removeCallbacks(saveTask)
-        uni.clear(); forms.clear(); bi.clear(); tri.clear(); ctxs.clear()
+        uni.clear(); forms.clear(); bi.clear(); tri.clear(); ctxs.clear(); globalPairs.clear()
         if (json != null) {
             file.writeText(json)
             load()
@@ -241,6 +315,18 @@ class SuggestEngine private constructor(private val app: Context) {
     private fun counts(m: Map<String, Int>) = JSONObject().apply { m.forEach { (k, v) -> put(k, v) } }
     private fun nested(m: Map<String, Map<String, Int>>) = JSONObject().apply { m.forEach { (k, v) -> put(k, counts(v)) } }
 
+    private fun pairsJson(list: List<PairRec>) = JSONArray().apply {
+        list.forEach { p -> put(JSONObject().put("k", p.inNorm).put("i", p.inText).put("r", p.reply).put("n", p.n).put("l", p.last)) }
+    }
+
+    private fun readPairs(arr: JSONArray?, into: ArrayList<PairRec>) {
+        arr ?: return
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            into += PairRec(o.optString("k"), o.optString("i"), o.optString("r"), o.optInt("n", 1), o.optLong("l"))
+        }
+    }
+
     @Synchronized
     private fun saveNow() {
         val root = JSONObject()
@@ -248,6 +334,7 @@ class SuggestEngine private constructor(private val app: Context) {
         root.put("forms", JSONObject().apply { forms.forEach { (k, v) -> put(k, v) } })
         root.put("bi", nested(bi))
         root.put("tri", nested(tri))
+        root.put("pairs", pairsJson(globalPairs))
         root.put("ctx", JSONObject().apply {
             ctxs.forEach { (k, c) ->
                 put(k, JSONObject().apply {
@@ -255,6 +342,7 @@ class SuggestEngine private constructor(private val app: Context) {
                     put("last", c.last)
                     put("uni", counts(c.uni))
                     put("bi", nested(c.bi))
+                    put("pairs", pairsJson(c.pairs))
                     put("msgs", JSONArray().apply {
                         c.msgs.values.forEach { m -> put(JSONObject().put("t", m.text).put("n", m.n).put("l", m.last)) }
                     })
@@ -289,6 +377,7 @@ class SuggestEngine private constructor(private val app: Context) {
             root.optJSONObject("forms")?.let { o -> for (k in o.keys()) forms[k] = o.optString(k) }
             readNested(root.optJSONObject("bi"), bi)
             readNested(root.optJSONObject("tri"), tri)
+            readPairs(root.optJSONArray("pairs"), globalPairs)
             root.optJSONObject("ctx")?.let { all ->
                 for (k in all.keys()) {
                     val o = all.getJSONObject(k)
@@ -296,6 +385,7 @@ class SuggestEngine private constructor(private val app: Context) {
                     c.last = o.optLong("last")
                     readCounts(o.optJSONObject("uni"), c.uni)
                     readNested(o.optJSONObject("bi"), c.bi)
+                    readPairs(o.optJSONArray("pairs"), c.pairs)
                     o.optJSONArray("msgs")?.let { arr ->
                         for (i in 0 until arr.length()) {
                             val m = arr.getJSONObject(i)

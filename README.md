@@ -29,6 +29,7 @@ Funktioniert mit jeder Tastatur. Keine Internet-Berechtigung – alles bleibt au
 | Funktion | So benutzt du sie |
 |---|---|
 | Smarte Vorschläge | Lernt lokal, wie du schreibst – pro Person/Chat. Chips über dem Eingabefeld: Wort fertig, nächstes Wort, ganze Sätze, Schnellantworten bei leerem Feld |
+| Antwort-Paare | Merkt sich, was du auf welche Nachricht antwortest (pro Person). Schreibt sie „gute Nacht“, kommt deine übliche Antwort als ↩-Chip |
 | Lieblingsantworten | Pro Person feste Antworten (z. B. Lena → „ily pookie“), erscheinen in ihrem Chat immer zuerst |
 | Orts-Modi | WLAN als Ort speichern: Gym → Workout Mode (1 Tipp), FH → „Nicht stören“ automatisch |
 | Funktionen an/aus | Einstellungen → Funktionen: jede Funktion einzeln abschaltbar (verschwindet auch aus Textmenü & Kacheln) |

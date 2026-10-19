@@ -47,6 +47,9 @@ class SuggestController(private val svc: ExpanderService) {
     private var ctxTitle = ""
     private var fieldKey = ""
     private var lastText = ""
+    /** The newest message the other person sent, if it's the last one in the chat. */
+    private var incoming: String? = null
+    private var lastPairedIncoming: String? = null
 
     private fun showOn() = Features.on(svc, "suggest") && Store.getBool(svc, "suggest_on", true)
 
@@ -78,6 +81,7 @@ class SuggestController(private val svc: ExpanderService) {
         val focused = svc.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
         if (focused != null && focused.isEditable && !focused.isPassword) {
             val t = if (focused.isShowingHintText) "" else focused.text?.toString().orEmpty()
+            readIncoming(focused)
             if (t.isBlank() && showOn()) { node = focused; showReplies(focused) }
         }
     }
@@ -90,18 +94,20 @@ class SuggestController(private val svc: ExpanderService) {
         node = n
         pkg = p
         refreshContext()
+        readIncoming(n)
         if (text.isBlank() && showOn()) showReplies(n) else if (text.isBlank()) hide()
     }
 
     private fun showReplies(n: AccessibilityNodeInfo) {
-        val list = engine.quickReplies(ctxKey, ctxTitle)
+        val list = engine.quickReplies(ctxKey, ctxTitle, incoming)
         note(list.size)
         show(list, n)
     }
 
     private fun note(count: Int) {
         lastEventAt = System.currentTimeMillis()
-        lastInfo = "App: $pkg\nChat erkannt: ${ctxTitle.ifBlank { "– (kein Name gefunden)" }}\nVorschläge gerade: $count"
+        lastInfo = "App: $pkg\nChat erkannt: ${ctxTitle.ifBlank { "– (kein Name gefunden)" }}\n" +
+            "Letzte erhaltene Nachricht: ${incoming?.take(40) ?: "–"}\nVorschläge gerade: $count"
     }
 
     fun onText(n: AccessibilityNodeInfo, text: String, cursor: Int) {
@@ -114,15 +120,16 @@ class SuggestController(private val svc: ExpanderService) {
         if (key != fieldKey) {
             flush()
             fieldKey = key
-        } else if (text.isBlank() && lastText.trim().length >= 2) {
-            learn(lastText, sent = true)   // field was cleared → message was sent
+        } else if (text.isBlank() && lastText.trim().isNotEmpty()) {
+            sent(lastText)   // field was cleared → message was sent
             lastText = ""
         }
+        if (text.isNotBlank() && lastText.isBlank()) readIncoming(n)   // starting a new message
         if (text.isNotBlank()) lastText = text
 
         val before = text.substring(0, cursor.coerceIn(0, text.length))
         val list = if (!showOn()) emptyList()
-                   else if (before.isBlank()) engine.quickReplies(ctxKey, ctxTitle) else engine.suggest(before, ctxKey, ctxTitle)
+                   else if (before.isBlank()) engine.quickReplies(ctxKey, ctxTitle, incoming) else engine.suggest(before, ctxKey, ctxTitle, incoming)
         note(list.size)
         show(list, n)
     }
@@ -138,6 +145,66 @@ class SuggestController(private val svc: ExpanderService) {
 
     private fun learn(text: String, sent: Boolean) {
         if (learnAllowed()) engine.learn(text, ctxKey.ifEmpty { pkg }, ctxTitle, sent)
+    }
+
+    private fun pairsOn() = Store.getBool(svc, "pairs_on", true)
+
+    /** A message was sent: learn the words/phrase, and the pair "their message → your answer". */
+    private fun sent(text: String) {
+        if (text.trim().length >= 2) learn(text, sent = true)
+        val inc = incoming
+        if (inc != null && inc != lastPairedIncoming && pairsOn() && learnAllowed()) {
+            engine.learnPair(ctxKey.ifEmpty { pkg }, ctxTitle, inc, text)
+            lastPairedIncoming = inc   // only your first answer to each of their messages
+        }
+        incoming = null   // you wrote last now – wait for their next message
+    }
+
+    // ── Their last message ────────────────────────────────────────────────
+
+    private val messageTextIds = setOf(
+        "com.whatsapp:id/message_text",
+        "com.whatsapp.w4b:id/message_text",
+    )
+
+    /**
+     * Finds the lowest chat bubble above the input field. If it's on the left (their side),
+     * that's the message you're answering; if it's on the right (you wrote last), there is none.
+     */
+    private fun readIncoming(field: AccessibilityNodeInfo) {
+        incoming = null
+        if (!pairsOn() || pkg == svc.packageName) return
+        val root = svc.rootInActiveWindow ?: return
+        val w = svc.resources.displayMetrics.widthPixels
+        val h = svc.resources.displayMetrics.heightPixels
+        val fieldBox = Rect().also { field.getBoundsInScreen(it) }
+        val hasIds = root.findAccessibilityNodeInfosByViewId(messageTextIds.first()).isNotEmpty() ||
+            root.findAccessibilityNodeInfosByViewId(messageTextIds.last()).isNotEmpty()
+
+        var lowestBottom = -1
+        var lowestText: String? = null
+        var lowestIsTheirs = false
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(root)
+        var visited = 0
+        val b = Rect()
+        while (queue.isNotEmpty() && visited < 1500) {
+            val n = queue.removeFirst()
+            visited++
+            for (i in 0 until n.childCount) n.getChild(i)?.let { queue.add(it) }
+            val t = n.text?.toString()?.trim() ?: continue
+            if (t.isEmpty() || t.length > 500 || n.isEditable || !n.isVisibleToUser) continue
+            if (hasIds && n.viewIdResourceName !in messageTextIds) continue
+            if (!hasIds && statusText.matches(t)) continue
+            n.getBoundsInScreen(b)
+            if (b.bottom > fieldBox.top || b.top < h * 0.1) continue
+            if (b.bottom > lowestBottom) {
+                lowestBottom = b.bottom
+                lowestText = t
+                lowestIsTheirs = b.left < w * 0.22 && b.centerX() < w * 0.55
+            }
+        }
+        if (lowestIsTheirs) incoming = lowestText
     }
 
     private fun flush() {
@@ -168,6 +235,7 @@ class SuggestController(private val svc: ExpanderService) {
         val title = if (p == svc.packageName) "FlowKit-Test" else findTitle(r)
         val newKey = if (title.isBlank()) p else "$p|$title"
         if (newKey != ctxKey && lastText.isNotBlank()) flush()   // draft belongs to the previous chat
+        if (newKey != ctxKey) { incoming = null; lastPairedIncoming = null }
         pkg = p
         ctxTitle = title
         ctxKey = newKey
