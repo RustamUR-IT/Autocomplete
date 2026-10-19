@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"   # weekly: keeps the signing key in the cache alive
 
 permissions:
   contents: write
@@ -17,9 +19,45 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+
+      # One fixed signing key, created on GitHub once and kept in the Actions cache,
+      # so every new APK installs over the previous one.
+      - name: Restore signing key
+        id: key
+        uses: actions/cache/restore@v4
+        with:
+          path: signing
+          key: flowkit-signing-v1
+
+      - name: Create signing key (first run only)
+        if: steps.key.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p signing
+          openssl rand -hex 24 > signing/pass.txt
+          PASS=$(cat signing/pass.txt)
+          keytool -genkeypair -keystore signing/release.jks -alias flowkit \
+            -storepass "$PASS" -keypass "$PASS" -keyalg RSA -keysize 2048 \
+            -validity 10000 -dname "CN=FlowKit"
+
+      - name: Save signing key
+        if: steps.key.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: signing
+          key: flowkit-signing-v1
+
       - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && ./gradlew assembleRelease --stacktrace
+        if: github.event_name != 'schedule'
+
+      - name: Build
+        if: github.event_name != 'schedule'
+        run: |
+          export FLOWKIT_KEYSTORE="$GITHUB_WORKSPACE/signing/release.jks"
+          export FLOWKIT_PASS="$(cat signing/pass.txt)"
+          chmod +x gradlew && ./gradlew assembleRelease --stacktrace
+
       - name: Publish release "latest"
+        if: github.event_name != 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -27,5 +65,5 @@ jobs:
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest FlowKit.apk \
             --title "FlowKit – neuester Build" \
-            --notes "Build #${{ github.run_number }} · FlowKit.apk herunterladen und auf dem Handy öffnen." \
+            --notes "Build #${{ github.run_number }} · FlowKit.apk herunterladen und auf dem Handy öffnen – installiert sich über die alte Version." \
             --target "${{ github.sha }}" --latest

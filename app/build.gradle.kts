@@ -11,15 +11,26 @@ android {
         applicationId = "app.textexpander"
         minSdk = 29
         targetSdk = 35
-        versionCode = 4
-        versionName = "3.1"
+        versionCode = 5
+        versionName = "3.2"
+    }
+
+    // On GitHub the workflow provides a fixed key (kept in the Actions cache, never in the repo).
+    // Local builds fall back to the debug key.
+    val keystore = System.getenv("FLOWKIT_KEYSTORE")
+    signingConfigs {
+        if (keystore != null) create("release") {
+            storeFile = file(keystore)
+            storePassword = System.getenv("FLOWKIT_PASS")
+            keyAlias = "flowkit"
+            keyPassword = System.getenv("FLOWKIT_PASS")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Signed with the debug key so the APK installs without extra setup.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (keystore != null) "release" else "debug")
         }
     }
 
