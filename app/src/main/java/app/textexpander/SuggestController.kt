@@ -20,6 +20,18 @@ import android.widget.TextView
  */
 class SuggestController(private val svc: ExpanderService) {
 
+    companion object {
+        /** True while the test field in FlowKit's own settings screen is open. */
+        @Volatile var testMode = false
+        /** Last diagnostic line, shown on the settings screen. */
+        @Volatile var lastInfo = "Noch kein Textfeld gesehen."
+        @Volatile var lastError = ""
+        @Volatile var lastEventAt = 0L
+        @Volatile var running = false
+    }
+
+    init { running = true }
+
     private val engine = SuggestEngine.get(svc)
     private val wm = svc.sys<WindowManager>()
     private val handler = Handler(Looper.getMainLooper())
@@ -39,11 +51,12 @@ class SuggestController(private val svc: ExpanderService) {
     private fun showOn() = Store.getBool(svc, "suggest_on", true)
 
     private fun learnAllowed() = Store.getBool(svc, "learn_on", true) &&
-        pkg.isNotEmpty() && pkg != svc.packageName &&
+        pkg.isNotEmpty() && (pkg != svc.packageName || testMode) &&
         Store.list(svc, "nolearn").none { it["target"] == "app:$pkg" }
 
     private fun isIgnoredPackage(p: String): Boolean {
-        if (p == svc.packageName || p == "com.android.systemui") return true
+        if (p == svc.packageName) return !testMode
+        if (p == "com.android.systemui") return true
         val ime = Settings.Secure.getString(svc.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).orEmpty()
         return ime.substringBefore('/') == p
     }
@@ -52,18 +65,43 @@ class SuggestController(private val svc: ExpanderService) {
 
     fun onWindow(p: String) {
         if (isIgnoredPackage(p)) return
-        flush()
-        hide()
+        // Only a different app ends the current draft – apps fire window events all the time.
+        if (p != pkg) { flush(); hide() }
         pkg = p
-        handler.postDelayed({ refreshContext() }, 400)
+        handler.removeCallbacks(windowSettled)
+        handler.postDelayed(windowSettled, 450)
     }
 
+    /** After a screen change: work out the chat, and offer quick replies if the input field is empty. */
+    private val windowSettled = Runnable {
+        refreshContext()
+        val focused = svc.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (focused != null && focused.isEditable && !focused.isPassword) {
+            val t = if (focused.isShowingHintText) "" else focused.text?.toString().orEmpty()
+            if (t.isBlank() && showOn()) { node = focused; showReplies(focused) }
+        }
+    }
+
+    /** Field focused or tapped. */
     fun onFocus(n: AccessibilityNodeInfo, text: String) {
         if (!n.isEditable || n.isPassword) { hide(); return }
+        val p = n.packageName?.toString() ?: return
+        if (isIgnoredPackage(p)) return
         node = n
-        pkg = n.packageName?.toString() ?: pkg
+        pkg = p
         refreshContext()
-        if (text.isBlank() && showOn()) show(engine.quickReplies(ctxKey), n) else hide()
+        if (text.isBlank() && showOn()) showReplies(n) else if (text.isBlank()) hide()
+    }
+
+    private fun showReplies(n: AccessibilityNodeInfo) {
+        val list = engine.quickReplies(ctxKey)
+        note(list.size)
+        show(list, n)
+    }
+
+    private fun note(count: Int) {
+        lastEventAt = System.currentTimeMillis()
+        lastInfo = "App: $pkg\nChat erkannt: ${ctxTitle.ifBlank { "– (kein Name gefunden)" }}\nVorschläge gerade: $count"
     }
 
     fun onText(n: AccessibilityNodeInfo, text: String, cursor: Int) {
@@ -82,9 +120,10 @@ class SuggestController(private val svc: ExpanderService) {
         }
         if (text.isNotBlank()) lastText = text
 
-        if (!showOn()) return
         val before = text.substring(0, cursor.coerceIn(0, text.length))
-        val list = if (before.isBlank()) engine.quickReplies(ctxKey) else engine.suggest(before, ctxKey)
+        val list = if (!showOn()) emptyList()
+                   else if (before.isBlank()) engine.quickReplies(ctxKey) else engine.suggest(before, ctxKey)
+        note(list.size)
         show(list, n)
     }
 
@@ -94,6 +133,7 @@ class SuggestController(private val svc: ExpanderService) {
         flush()
         hide()
         engine.flushToDisk()
+        running = false
     }
 
     private fun learn(text: String, sent: Boolean) {
@@ -125,10 +165,12 @@ class SuggestController(private val svc: ExpanderService) {
         val r = svc.rootInActiveWindow ?: return
         val p = r.packageName?.toString() ?: return
         if (isIgnoredPackage(p)) return
-        val title = findTitle(r)
+        val title = if (p == svc.packageName) "FlowKit-Test" else findTitle(r)
+        val newKey = if (title.isBlank()) p else "$p|$title"
+        if (newKey != ctxKey && lastText.isNotBlank()) flush()   // draft belongs to the previous chat
         pkg = p
         ctxTitle = title
-        ctxKey = if (title.isBlank()) p else "$p|$title"
+        ctxKey = newKey
     }
 
     private fun findTitle(r: AccessibilityNodeInfo): String {
@@ -223,8 +265,10 @@ class SuggestController(private val svc: ExpanderService) {
         }
         try {
             if (attached) wm.updateViewLayout(r, lp) else { wm.addView(r, lp); attached = true }
+            lastError = ""
         } catch (e: Exception) {
             attached = false
+            lastError = "Overlay-Fehler: ${e.javaClass.simpleName}: ${e.message}"
         }
         handler.removeCallbacks(hideTask)
         handler.postDelayed(hideTask, 20_000)

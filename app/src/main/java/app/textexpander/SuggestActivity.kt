@@ -10,7 +10,25 @@ class SuggestActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        SuggestController.testMode = true
         render()
+    }
+
+    override fun onPause() {
+        SuggestController.testMode = false
+        super.onPause()
+    }
+
+    private fun diagnostics(): String {
+        val service = when {
+            !ExpanderService.isEnabled(this) -> "❌ Bedienungshilfe ist AUS"
+            !SuggestController.running -> "⚠️ Bedienungshilfe an, aber Dienst läuft nicht – aus- und wieder einschalten"
+            else -> "✅ Dienst läuft"
+        }
+        val ago = if (SuggestController.lastEventAt == 0L) "noch nie"
+                  else "vor ${(System.currentTimeMillis() - SuggestController.lastEventAt) / 1000} s"
+        return "$service\nLetztes Textfeld: $ago\n${SuggestController.lastInfo}" +
+            if (SuggestController.lastError.isNotEmpty()) "\n${SuggestController.lastError}" else ""
     }
 
     private fun appName(pkg: String) = try {
@@ -30,6 +48,18 @@ class SuggestActivity : Activity() {
                 Store.putBool(context, "learn_on", it)
             }
             label("${engine.wordCount()} Wörter · ${contacts.size} Chats & Kontakte gelernt", 13f, muted = true, topDp = 8)
+        }
+
+        c.section("🧪 Test")
+        c.card {
+            label("1. Unten „ily pookie“ tippen → „Senden“.\n2. Nochmal tippen & senden.\n3. Ins leere Feld tippen → über dem Feld sollte ein Chip „ily pookie“ erscheinen. Tippe „il“ → Chip „…y pookie“.", 13f, muted = true, topDp = 0)
+            val field = context.input(hint = "Testnachricht …")
+            addView(field)
+            row {
+                pill("Senden", primary = true) { field.setText("") }
+                pill("Diagnose aktualisieren") { render() }
+            }
+            label(diagnostics(), 12f, mono = true, topDp = 8)
         }
 
         c.section("So funktioniert's")
