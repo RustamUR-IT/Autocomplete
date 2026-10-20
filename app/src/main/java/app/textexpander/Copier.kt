@@ -26,27 +26,38 @@ import android.widget.Toast
  */
 class Copier(private val svc: ExpanderService) {
 
+    companion object {
+        /** What FlowKit last saw – shown in Settings to check if an app reports taps at all. */
+        @Volatile var lastTap = "Noch nichts angetippt."
+    }
+
     private val handler = Handler(Looper.getMainLooper())
     private val wm = svc.sys<WindowManager>()
     private var lastKey = ""
     private var lastAt = 0L
     private var overlay: FrameLayout? = null
 
-    private val timeOnly = Regex("^(\\d{1,2}:\\d{2}( ?(am|pm))?|bearbeitet|edited|✓+|gesehen|seen)$", RegexOption.IGNORE_CASE)
+    private val timeOnly = Regex("^(\\d{1,2}[:.]\\d{2}\\b.{0,22}|bearbeitet|edited|✓+|gesehen|seen|gelesen|read)$", RegexOption.IGNORE_CASE)
     private val messageIds = setOf("com.whatsapp:id/message_text", "com.whatsapp.w4b:id/message_text")
 
     // ── Double tap ────────────────────────────────────────────────────────
+
+    private fun appName(pkg: CharSequence?) = try {
+        svc.packageManager.getApplicationLabel(svc.packageManager.getApplicationInfo(pkg.toString(), 0)).toString()
+    } catch (e: Exception) { pkg?.toString().orEmpty() }
 
     fun onClick(event: AccessibilityEvent) {
         if (!Features.on(svc, "copy")) return
         val n = event.source ?: return
         if (n.isEditable || n.isPassword) return   // double tap in a text field = normal word selection
-        val b = Rect().also { n.getBoundsInScreen(it) }
-        val key = "${event.packageName}|${n.windowId}|${n.viewIdResourceName}|${b.flattenToString()}"
+        val text = textOf(n)
+        lastTap = "Antippen in ${appName(event.packageName)} gemeldet: „${text.take(30).replace('\n', ' ')}“"
+        // Same element = same app/window and same text (bounds may shift when the app highlights it).
+        val key = "${event.packageName}|${n.windowId}|${n.viewIdResourceName ?: n.className}|${text.take(80)}"
         val now = System.currentTimeMillis()
-        if (key == lastKey && now - lastAt < 450) {
+        if (key == lastKey && now - lastAt < 500) {
             lastKey = ""
-            copy(textOf(n))
+            copy(text)
         } else {
             lastKey = key
             lastAt = now
@@ -59,6 +70,7 @@ class Copier(private val svc: ExpanderService) {
         if (!Features.on(svc, "copy")) return
         val n = event.source ?: return
         if (n.isEditable || n.isPassword) return   // long press in a text field = normal selection
+        lastTap = "Lange drücken in ${appName(event.packageName)} gemeldet"
         handler.postDelayed({ copy(allText(), everything = true) }, 150)
     }
 

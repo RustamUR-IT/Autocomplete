@@ -29,6 +29,7 @@ class SettingsActivity : Activity() {
                 toggle(f.title, Features.on(context, f.id)) { Features.set(context, f.id, it); render() }
                 label(f.desc, 12f, muted = true, topDp = 0)
             }
+            label("Diagnose Kopieren: ${Copier.lastTap}", 12f, muted = true, mono = true, topDp = 10)
         }
 
         // ── Backup ────────────────────────────────────────────────────────

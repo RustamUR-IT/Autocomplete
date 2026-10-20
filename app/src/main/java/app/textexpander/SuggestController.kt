@@ -299,6 +299,10 @@ class SuggestController(private val svc: ExpanderService) {
         ).apply { setMargins(0, svc.dp(2), svc.dp(6), svc.dp(2)) }
     }
 
+    private var lp: WindowManager.LayoutParams? = null
+    private var anchored: AccessibilityNodeInfo? = null
+    private val lastField = Rect()
+
     private fun show(list: List<Suggestion>, n: AccessibilityNodeInfo) {
         if (list.isEmpty()) { hide(); return }
         ensureView()
@@ -306,18 +310,31 @@ class SuggestController(private val svc: ExpanderService) {
         val b = bar!!
         b.removeAllViews()
         list.forEach { s -> b.addView(chip(s, s.strong)) }
+        anchored = n
+        place(n, force = true)
+        handler.removeCallbacks(hideTask)
+        handler.postDelayed(hideTask, 20_000)
+        handler.removeCallbacks(follow)
+        handler.postDelayed(follow, 250)
+    }
+
+    /** Puts the chips directly above the text field (below it if there's no room above). */
+    private fun place(n: AccessibilityNodeInfo, force: Boolean) {
+        val r = root ?: return
+        val field = Rect()
+        n.getBoundsInScreen(field)
+        if (field.isEmpty) { hide(); return }
+        if (!force && field == lastField && attached) return
+        lastField.set(field)
 
         val screenW = svc.resources.displayMetrics.widthPixels
         r.measure(
             View.MeasureSpec.makeMeasureSpec(screenW - svc.dp(16), View.MeasureSpec.AT_MOST),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
         )
-        val field = Rect()
-        n.getBoundsInScreen(field)
         val h = r.measuredHeight
         val above = field.top - h - svc.dp(6)
-
-        val lp = WindowManager.LayoutParams(
+        val params = lp ?: WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -326,24 +343,33 @@ class SuggestController(private val svc: ExpanderService) {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = maxOf(svc.dp(8), field.left)
-            y = if (above > svc.dp(56)) above else field.bottom + svc.dp(6)
-        }
+        ).apply { gravity = Gravity.TOP or Gravity.START }.also { lp = it }
+        params.x = maxOf(svc.dp(8), field.left)
+        params.y = if (above > svc.dp(56)) above else field.bottom + svc.dp(6)
         try {
-            if (attached) wm.updateViewLayout(r, lp) else { wm.addView(r, lp); attached = true }
+            if (attached) wm.updateViewLayout(r, params) else { wm.addView(r, params); attached = true }
             lastError = ""
         } catch (e: Exception) {
             attached = false
             lastError = "Overlay-Fehler: ${e.javaClass.simpleName}: ${e.message}"
         }
-        handler.removeCallbacks(hideTask)
-        handler.postDelayed(hideTask, 20_000)
+    }
+
+    /** While visible: follow the field when the keyboard opens/closes or the layout shifts; vanish with it. */
+    private val follow = object : Runnable {
+        override fun run() {
+            if (!attached) return
+            val n = anchored ?: run { hide(); return }
+            if (!n.refresh() || !n.isVisibleToUser || !n.isFocused) { hide(); return }
+            place(n, force = false)
+            handler.postDelayed(this, 250)
+        }
     }
 
     fun hide() {
         handler.removeCallbacks(hideTask)
+        handler.removeCallbacks(follow)
+        anchored = null
         if (attached) {
             try { wm.removeView(root) } catch (e: Exception) { }
             attached = false
