@@ -23,6 +23,8 @@ import android.view.accessibility.AccessibilityNodeInfo
 class ExpanderService : AccessibilityService() {
 
     companion object {
+        /** The running service, so tiles can trigger things like copy mode. */
+        @Volatile var instance: ExpanderService? = null
         /** Package → time until which a blocked app may be used without friction. */
         val passUntil = HashMap<String, Long>()
         private var lastFrictionAt = 0L
@@ -38,11 +40,14 @@ class ExpanderService : AccessibilityService() {
 
     private var suggest: SuggestController? = null
     private var places: PlaceWatcher? = null
+    var copier: Copier? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         suggest = SuggestController(this)
         places = PlaceWatcher(this).also { it.start() }
+        copier = Copier(this)
+        instance = this
         val filter = IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_USER_PRESENT) }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else registerReceiver(screenReceiver, filter)
@@ -103,6 +108,9 @@ class ExpanderService : AccessibilityService() {
     override fun onUnbind(intent: Intent?): Boolean {
         suggest?.shutdown()
         places?.stop()
+        copier?.shutdown()
+        copier = null
+        instance = null
         places = null
         doomHandler.removeCallbacks(doomCheck)
         try { unregisterReceiver(screenReceiver) } catch (e: Exception) { }
@@ -114,7 +122,8 @@ class ExpanderService : AccessibilityService() {
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> onText(event)
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> onWindow(event)
-            AccessibilityEvent.TYPE_VIEW_FOCUSED, AccessibilityEvent.TYPE_VIEW_CLICKED -> onFocus(event)
+            AccessibilityEvent.TYPE_VIEW_FOCUSED -> onFocus(event)
+            AccessibilityEvent.TYPE_VIEW_CLICKED -> { copier?.onClick(event); onFocus(event) }
         }
     }
 

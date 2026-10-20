@@ -9,4 +9,5 @@
     <string name="action_quiz">Als Lernfrage</string>
     <string name="tile_note">Brain Dump</string>
     <string name="tile_study">Study Mode</string>
+    <string name="tile_copy">Text kopieren</string>
 </resources>

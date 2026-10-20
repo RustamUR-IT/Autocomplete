@@ -151,3 +151,20 @@ class StudyTileService : LaunchTile() {
         }
     }
 }
+
+/** Tile "Text kopieren": next tap on the screen copies the text under your finger. */
+class CopyTileService : TileService() {
+    override fun onClick() {
+        val svc = ExpanderService.instance
+        if (svc?.copier == null) {
+            val i = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (Build.VERSION.SDK_INT >= 34) {
+                startActivityAndCollapse(PendingIntent.getActivity(this, 2, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+            } else {
+                @Suppress("DEPRECATION") startActivityAndCollapse(i)
+            }
+            return
+        }
+        svc.copier?.startCopyMode()
+    }
+}
