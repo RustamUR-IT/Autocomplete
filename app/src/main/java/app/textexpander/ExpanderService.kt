@@ -124,6 +124,7 @@ class ExpanderService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> onWindow(event)
             AccessibilityEvent.TYPE_VIEW_FOCUSED -> onFocus(event)
             AccessibilityEvent.TYPE_VIEW_CLICKED -> { copier?.onClick(event); onFocus(event) }
+            AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> copier?.onLongClick(event)
         }
     }
 

@@ -20,8 +20,9 @@ import android.widget.Toast
 
 /**
  * Copy a whole text block:
- *  - double-tap on a message / list item (works where the app reports taps, e.g. WhatsApp bubbles)
- *  - copy mode (tile "Text kopieren"): next tap anywhere copies the text under your finger
+ *  - double-tap on a message / list item → that block (works where the app reports taps, e.g. WhatsApp bubbles)
+ *  - long-press → all text visible on screen, top to bottom
+ *  - copy mode (tile "Text kopieren"): tap = text under your finger, hold = everything
  */
 class Copier(private val svc: ExpanderService) {
 
@@ -52,6 +53,43 @@ class Copier(private val svc: ExpanderService) {
         }
     }
 
+    // ── Long press → everything on screen ─────────────────────────────────
+
+    fun onLongClick(event: AccessibilityEvent) {
+        if (!Features.on(svc, "copy")) return
+        val n = event.source ?: return
+        if (n.isEditable || n.isPassword) return   // long press in a text field = normal selection
+        handler.postDelayed({ copy(allText(), everything = true) }, 150)
+    }
+
+    /** All visible text of the current screen, in reading order. Chat apps: only the messages. */
+    private fun allText(): String {
+        val root = svc.rootInActiveWindow ?: return ""
+        val h = svc.resources.displayMetrics.heightPixels
+        val found = ArrayList<Triple<Int, Int, String>>()   // top, left, text
+        val hasMsgIds = messageIds.any { root.findAccessibilityNodeInfosByViewId(it).isNotEmpty() }
+        val b = Rect()
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(root)
+        var visited = 0
+        while (queue.isNotEmpty() && visited < 3000) {
+            val n = queue.removeFirst()
+            visited++
+            for (i in 0 until n.childCount) n.getChild(i)?.let { queue.add(it) }
+            if (!n.isVisibleToUser || n.isPassword || n.isEditable) continue
+            val t = n.text?.toString()?.trim().orEmpty()
+            if (t.isEmpty() || timeOnly.matches(t)) continue
+            if (hasMsgIds && n.viewIdResourceName !in messageIds) continue
+            n.getBoundsInScreen(b)
+            if (b.bottom <= 0 || b.top >= h) continue
+            found += Triple(b.top, b.left, t)
+        }
+        return found.sortedWith(compareBy({ it.first }, { it.second }))
+            .map { it.third }
+            .fold(ArrayList<String>()) { acc, t -> if (acc.lastOrNull() != t) acc += t; acc }
+            .joinToString("\n")
+    }
+
     // ── Copy mode ─────────────────────────────────────────────────────────
 
     fun startCopyMode() {
@@ -62,7 +100,7 @@ class Copier(private val svc: ExpanderService) {
 
     private fun showOverlay() {
         val hint = TextView(svc).apply {
-            text = "Tippe auf einen Text zum Kopieren"
+            text = "Tippen = diesen Text kopieren · Halten = alles"
             setTextColor(Color.WHITE)
             textSize = 15f
             setPadding(svc.dp(18), svc.dp(10), svc.dp(18), svc.dp(10))
@@ -76,9 +114,12 @@ class Copier(private val svc: ExpanderService) {
                 if (e.action == MotionEvent.ACTION_UP) {
                     val x = e.rawX.toInt()
                     val y = e.rawY.toInt()
+                    val held = e.eventTime - e.downTime > 500
                     removeOverlay()
                     // let the overlay disappear, then look at what's underneath
-                    handler.postDelayed({ copy(textAt(x, y)) }, 120)
+                    handler.postDelayed({
+                        if (held) copy(allText(), everything = true) else copy(textAt(x, y))
+                    }, 120)
                 }
                 true
             }
@@ -145,14 +186,15 @@ class Copier(private val svc: ExpanderService) {
         for (i in 0 until n.childCount) n.getChild(i)?.let { collect(it, depth + 1, out) }
     }
 
-    private fun copy(text: String) {
+    private fun copy(text: String, everything: Boolean = false) {
         if (text.isBlank()) {
             Toast.makeText(svc, "Hier ist kein Text zum Kopieren", Toast.LENGTH_SHORT).show()
             return
         }
         svc.sys<ClipboardManager>().setPrimaryClip(ClipData.newPlainText("FlowKit", text))
-        val preview = text.replace('\n', ' ').let { if (it.length > 40) it.take(40) + "…" else it }
-        Toast.makeText(svc, "📋 Kopiert: $preview", Toast.LENGTH_SHORT).show()
+        val msg = if (everything) "📋 Alles kopiert (${text.lines().size} Zeilen)"
+                  else "📋 Kopiert: " + text.replace('\n', ' ').let { if (it.length > 40) it.take(40) + "…" else it }
+        Toast.makeText(svc, msg, Toast.LENGTH_SHORT).show()
     }
 
     fun shutdown() = removeOverlay()

@@ -19,7 +19,7 @@ object Features {
         F("expander", "⌨️ Text-Kürzel", ";mail, ;date … werden beim Tippen ersetzt"),
         F("suggest", "💡 Smarte Vorschläge", "Wortvorschläge & Antworten pro Person über dem Eingabefeld"),
         F("launcher", "🚀 Quick Launcher", ";fh, ;gym … öffnen Seiten, Apps, Aktionen"),
-        F("copy", "👆 Doppeltippen = kopieren", "Doppeltippen auf eine Nachricht kopiert den ganzen Text + Kachel „Text kopieren“",
+        F("copy", "👆 Tippen zum Kopieren", "Doppeltippen = Abschnitt kopieren · lange drücken = alles auf dem Bildschirm · Kachel „Text kopieren“",
             components = listOf("CopyTileService")),
         F("clipboard", "📋 Smart Clipboard", "Gespeicherte Texte + „In Clipboard speichern“ im Textmenü",
             components = listOf("SaveClipActivity")),
