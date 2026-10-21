@@ -127,9 +127,18 @@ class SuggestController(private val svc: ExpanderService) {
         if (text.isNotBlank() && lastText.isBlank()) readIncoming(n)   // starting a new message
         if (text.isNotBlank()) lastText = text
 
+        compute(n, text, cursor)
+    }
+
+    /** Text the visible chips were computed for – if the field changes, they're recomputed or hidden. */
+    private var shownFor: String? = null
+    private var shownSig = ""
+
+    private fun compute(n: AccessibilityNodeInfo, text: String, cursor: Int) {
         val before = text.substring(0, cursor.coerceIn(0, text.length))
         val list = if (!showOn()) emptyList()
                    else if (before.isBlank()) engine.quickReplies(ctxKey, ctxTitle, incoming) else engine.suggest(before, ctxKey, ctxTitle, incoming)
+        shownFor = before
         note(list.size)
         show(list, n)
     }
@@ -308,10 +317,16 @@ class SuggestController(private val svc: ExpanderService) {
         ensureView()
         val r = root!!
         val b = bar!!
-        b.removeAllViews()
-        list.forEach { s -> b.addView(chip(s, s.strong)) }
+        val sig = list.joinToString("\u0001") { it.label + "|" + it.insert }
+        val changed = sig != shownSig || !attached
+        if (changed) {
+            b.removeAllViews()
+            list.forEach { s -> b.addView(chip(s, s.strong)) }
+            shownSig = sig
+            if (!attached) { r.alpha = 0f; r.animate().alpha(1f).setDuration(120).start() }
+        }
         anchored = n
-        place(n, force = true)
+        place(n, force = changed)
         handler.removeCallbacks(hideTask)
         handler.postDelayed(hideTask, 20_000)
         handler.removeCallbacks(follow)
@@ -361,7 +376,17 @@ class SuggestController(private val svc: ExpanderService) {
             if (!attached) return
             val n = anchored ?: run { hide(); return }
             if (!n.refresh() || !n.isVisibleToUser || !n.isFocused) { hide(); return }
-            place(n, force = false)
+            val text = if (n.isShowingHintText) "" else n.text?.toString().orEmpty()
+            var cur = n.textSelectionEnd
+            if (cur < 0 || cur > text.length) cur = text.length
+            val before = text.substring(0, cur)
+            if (before != shownFor) {
+                if (text.isBlank() && lastText.trim().isNotEmpty()) { sent(lastText); lastText = "" }
+                compute(n, text, cur)
+                if (!attached) return
+            } else {
+                place(n, force = false)
+            }
             handler.postDelayed(this, 250)
         }
     }

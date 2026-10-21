@@ -231,9 +231,9 @@ class SuggestEngine private constructor(private val app: Context) {
             c?.bi?.get(p1)?.keys?.let { cands += it }
             if (p2 != null) tri["$p2 $p1"]?.keys?.let { cands += it }
         } else {
-            val minCount = if (pl.length == 1) 3 else 2
-            for ((w, n) in uni) if (w.length > pl.length && w.startsWith(pl) && n >= minCount) cands += w
-            c?.uni?.keys?.forEach { w -> if (w.length > pl.length && w.startsWith(pl)) cands += w }
+            if (pl.length < 2) return out   // one letter → far too many guesses, show nothing
+            for ((w, n) in uni) if (w.length > pl.length + 1 && w.startsWith(pl) && n >= 3) cands += w
+            c?.uni?.forEach { (w, n) -> if (w.length > pl.length + 1 && w.startsWith(pl) && n >= 2) cands += w }
         }
 
         fun score(w: String): Double {
@@ -247,8 +247,10 @@ class SuggestEngine private constructor(private val app: Context) {
         }
 
         val already = out.map { it.insert.trim().lowercase() }.toSet()
+        // Next word: only when we've really seen this sequence before (not a lucky single hit).
+        // Completion: only words you use – no dictionary guesses.
         val words = cands.map { it to score(it) }
-            .filter { it.second >= (if (pl.isEmpty()) 2.0 else 0.6) && it.first !in already }
+            .filter { it.second >= (if (pl.isEmpty()) 6.0 else 1.5) && it.first !in already }
             .sortedByDescending { it.second }
             .take(3 - out.size)
         for ((w, _) in words) {
