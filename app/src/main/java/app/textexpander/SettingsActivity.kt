@@ -35,7 +35,7 @@ class SettingsActivity : Activity() {
         // ── Backup ────────────────────────────────────────────────────────
         c.section("💾 Backup")
         c.card {
-            label("Speichert alles in eine Datei: Kürzel, Clipboard, Notizen, Lieblingsantworten, Orte, Einstellungen und was die Vorschläge gelernt haben. Am besten auf Google Drive ablegen.", 13f, muted = true, topDp = 0)
+            label("Speichert alles in eine Datei: Kürzel, Clipboard, Notizen, Lieblingsantworten, Orte, Einstellungen und was die Vorschläge gelernt haben. Am besten auf Google Drive ablegen.\nDie Dateien im Dokumente-Tresor selbst sind nicht enthalten – sie bleiben beim Update auf dem Handy, würden aber bei einer Deinstallation gelöscht (vorher über „Teilen“ sichern).", 13f, muted = true, topDp = 0)
             row {
                 pill("Backup speichern", primary = true) {
                     @Suppress("DEPRECATION")

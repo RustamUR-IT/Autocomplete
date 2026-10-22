@@ -13,6 +13,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         render()
+        DailyCheck.schedule(this)
     }
 
     private fun render() {
@@ -71,6 +72,13 @@ class MainActivity : Activity() {
         }
         if (Features.on(this, "places")) c.tool("📍  Orts-Modi", "Gym-WLAN → Workout Mode · FH-WLAN → Nicht stören · ${Store.list(this, "places").size} Orte") {
             startActivity(Intent(this, PlacesActivity::class.java))
+        }
+        if (Features.on(this, "docs") || Features.on(this, "warranty")) {
+            val nDocs = Docs.all(this).size
+            val soon = Docs.warranties(this).count { (Docs.warrantyDaysLeft(it) ?: 999) in 0..30 }
+            c.tool("📁  Dokumente & Garantien", "$nDocs Dokumente im Tresor · ${Docs.warranties(this).size} Garantien" + if (soon > 0) " · ⚠️ $soon läuft bald ab" else "") {
+                startActivity(Intent(this, DocsActivity::class.java).putExtra("tab", if (Features.on(this, "docs")) "docs" else "warranty"))
+            }
         }
         if (Features.on(this, "clipboard")) c.tool("📋  Smart Clipboard", "${Store.list(this, "clips").size} gespeicherte Texte, Links, Uni-Sachen und Code") {
             ListActivity.open(this, "clips")

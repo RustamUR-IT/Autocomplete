@@ -36,6 +36,8 @@ Funktioniert mit jeder Tastatur. Keine Internet-Berechtigung – alles bleibt au
 | Backup | Einstellungen → Backup speichern / Wiederherstellen (JSON-Datei, z. B. auf Google Drive) |
 | Doomscroll-Limit | Standard aus. Nach X Minuten am Stück in gebremsten Apps ein Hinweis mit Alternativen |
 | Tippen zum Kopieren | Doppeltippen = Abschnitt kopieren, lange drücken = alles Sichtbare kopieren. Wo das nicht geht: Kachel „Text kopieren“ → auf beliebigen Text tippen |
+| Dokumente | Tresor für wichtige Unterlagen (Ausweise, Verträge, Zeugnisse, Rechnungen …). Findet in freigegebenen Ordnern automatisch wichtige Dateien. „Teilen → FlowKit“ aus jeder App |
+| Garantien | Produkt + Kaufdatum + Beleg; Erinnerung 30 / 7 / 1 Tage vor Ablauf |
 | Text-Kürzel | `;mail` `;adr` `;ty` `;lg` `;mfg` `;hallo` `;krank` `;main` `;pf` `;sf` `;for` … in jeder App tippen |
 | Dynamische Snippets | `;date` `;today` `;now` `;week` `;iso` `;morgen` – Platzhalter: `{date} {isodate} {time} {weekday} {week} {tomorrow} {cursor}` |
 | Smart Clipboard | Kategorien Texte / Links / Uni / Code. Antippen = kopieren. Text markieren → „In Clipboard speichern“ oder aus jeder App teilen |

@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -46,6 +47,40 @@
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".SuggestActivity" android:exported="false" />
         <activity android:name=".PlacesActivity" android:exported="false" />
+        <activity android:name=".DocsActivity" android:exported="false" android:launchMode="singleTop" />
+
+        <!-- "Teilen → FlowKit" for files: PDF, photos, screenshots, Office documents -->
+        <activity
+            android:name=".ReceiveDocActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="@string/action_save_doc"
+            android:theme="@style/Translucent">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/*" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/*" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name=".DocProvider"
+            android:authorities="app.textexpander.docs"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+        <receiver android:name=".DailyCheck" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
         <activity android:name=".FocusActivity" android:exported="false" android:launchMode="singleTop" />
 
         <activity

@@ -10,4 +10,5 @@
     <string name="tile_note">Brain Dump</string>
     <string name="tile_study">Study Mode</string>
     <string name="tile_copy">Text kopieren</string>
+    <string name="action_save_doc">In FlowKit-Tresor speichern</string>
 </resources>
