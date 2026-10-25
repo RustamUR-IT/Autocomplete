@@ -35,7 +35,7 @@ Funktioniert mit jeder Tastatur. Keine Internet-Berechtigung – alles bleibt au
 | Funktionen an/aus | Einstellungen → Funktionen: jede Funktion einzeln abschaltbar (verschwindet auch aus Textmenü & Kacheln) |
 | Backup | Einstellungen → Backup speichern / Wiederherstellen (JSON-Datei, z. B. auf Google Drive) |
 | Doomscroll-Limit | Standard aus. Nach X Minuten am Stück in gebremsten Apps ein Hinweis mit Alternativen |
-| Tippen zum Kopieren | Doppeltippen = Abschnitt kopieren, lange drücken = alles Sichtbare kopieren. Wo das nicht geht: Kachel „Text kopieren“ → auf beliebigen Text tippen |
+| Doppeltippen = kopieren | Doppeltippen auf Text kopiert den Abschnitt (nicht in Chat-Apps wie WhatsApp, dort ist es Liken). Kachel „Text kopieren“: tippen = Abschnitt, halten = alles. Wo das nicht geht: Kachel „Text kopieren“ → auf beliebigen Text tippen |
 | Dokumente | Tresor für wichtige Unterlagen (Ausweise, Verträge, Zeugnisse, Rechnungen …). Findet in freigegebenen Ordnern automatisch wichtige Dateien. „Teilen → FlowKit“ aus jeder App |
 | Garantien | Produkt + Kaufdatum + Beleg; Erinnerung 30 / 7 / 1 Tage vor Ablauf |
 | Text-Kürzel | `;mail` `;adr` `;ty` `;lg` `;mfg` `;hallo` `;krank` `;main` `;pf` `;sf` `;for` … in jeder App tippen |

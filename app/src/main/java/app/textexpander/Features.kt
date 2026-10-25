@@ -19,7 +19,7 @@ object Features {
         F("expander", "⌨️ Text-Kürzel", ";mail, ;date … werden beim Tippen ersetzt"),
         F("suggest", "💡 Smarte Vorschläge", "Wortvorschläge & Antworten pro Person über dem Eingabefeld"),
         F("launcher", "🚀 Quick Launcher", ";fh, ;gym … öffnen Seiten, Apps, Aktionen"),
-        F("copy", "👆 Tippen zum Kopieren", "Doppeltippen = Abschnitt kopieren · lange drücken = alles auf dem Bildschirm · Kachel „Text kopieren“",
+        F("copy", "👆 Doppeltippen = kopieren", "Doppeltippen auf Text kopiert den Abschnitt (nicht in WhatsApp – dort ist es Liken) · Kachel „Text kopieren“: tippen = Abschnitt, halten = alles",
             components = listOf("CopyTileService")),
         F("docs", "📁 Dokumente", "Tresor für wichtige Unterlagen, findet Rechnungen/Verträge/Zeugnisse automatisch, „Teilen → FlowKit“",
             components = listOf("ReceiveDocActivity")),

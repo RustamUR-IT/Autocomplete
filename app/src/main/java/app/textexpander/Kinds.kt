@@ -220,6 +220,23 @@ object Kinds {
         subOf = { c, r -> "WLAN „${r["ssid"]}“ → " + Launch.describe(c, r["target"].orEmpty()) },
     )
 
-    private val all = listOf(snippets, clips, launchers, notes, cheat, studyapps, alts, blocked, nolearn, pinned, places).associateBy { it.id }
+    val nocopy = Kind(
+        id = "nocopy",
+        title = "Kein Doppeltipp-Kopieren in …",
+        help = "In diesen Apps macht Doppeltippen etwas Eigenes (z. B. Liken), deshalb kopiert FlowKit dort nicht. Kachel „Text kopieren“ geht trotzdem.",
+        fields = listOf(label, target),
+        defaults = listOf(
+            r("label" to "WhatsApp", "target" to "app:com.whatsapp"),
+            r("label" to "WhatsApp Business", "target" to "app:com.whatsapp.w4b"),
+            r("label" to "Instagram", "target" to "app:com.instagram.android"),
+            r("label" to "Telegram", "target" to "app:org.telegram.messenger"),
+            r("label" to "Signal", "target" to "app:org.thoughtcrime.securesms"),
+            r("label" to "Spotify", "target" to "app:com.spotify.music"),
+            r("label" to "YouTube", "target" to "app:com.google.android.youtube"),
+        ),
+        titleOf = targetTitle, subOf = targetSub,
+    )
+
+    private val all = listOf(snippets, clips, launchers, notes, cheat, studyapps, alts, blocked, nolearn, pinned, places, nocopy).associateBy { it.id }
     fun get(id: String?): Kind? = all[id]
 }

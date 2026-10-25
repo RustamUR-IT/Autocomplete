@@ -29,6 +29,9 @@ class SettingsActivity : Activity() {
                 toggle(f.title, Features.on(context, f.id)) { Features.set(context, f.id, it); render() }
                 label(f.desc, 12f, muted = true, topDp = 0)
             }
+            if (Features.on(context, "copy")) pill("Apps ohne Doppeltipp-Kopieren (${Store.list(context, "nocopy").size})") {
+                ListActivity.open(this@SettingsActivity, "nocopy")
+            }
             label("Diagnose Kopieren: ${Copier.lastTap}", 12f, muted = true, mono = true, topDp = 10)
         }
 

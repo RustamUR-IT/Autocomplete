@@ -104,7 +104,7 @@ class MainActivity : Activity() {
         c.label(
             "• Text markieren → ⋮ im Menü: „Erklären“, „Zusammenfassen“, „Übersetzen“, „Lernfrage“, „In Clipboard speichern“.\n" +
                 "• Schnelleinstellungen runterziehen → Stift → Kacheln „Brain Dump“, „Study Mode“ und „Text kopieren“ hinzufügen.\n" +
-                "• Doppeltippen auf eine Nachricht kopiert den Abschnitt, lange drücken kopiert alles auf dem Bildschirm.\n" +
+                "• Doppeltippen auf Text kopiert den Abschnitt (außer in WhatsApp & Co.). Kachel „Text kopieren“ gedrückt halten = alles.\n" +
                 "• Kürzel feuern sofort beim Tippen – deshalb beginnen alle mit ;",
             13f, muted = true,
         )

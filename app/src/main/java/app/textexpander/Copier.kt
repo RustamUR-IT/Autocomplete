@@ -46,11 +46,26 @@ class Copier(private val svc: ExpanderService) {
         svc.packageManager.getApplicationLabel(svc.packageManager.getApplicationInfo(pkg.toString(), 0)).toString()
     } catch (e: Exception) { pkg?.toString().orEmpty() }
 
+    private val controlClasses = listOf("Button", "ImageView", "CheckBox", "Switch", "Spinner", "SeekBar", "Tab", "RadioButton", "Toggle", "Slider", "Chip")
+
+    private fun excludedApp(pkg: String?): Boolean {
+        if (pkg == null || pkg == "com.android.systemui" || pkg == svc.packageName) return true
+        return Store.list(svc, "nocopy").any { it["target"] == "app:$pkg" }
+    }
+
     fun onClick(event: AccessibilityEvent) {
         if (!Features.on(svc, "copy")) return
+        val pkg = event.packageName?.toString()
+        if (excludedApp(pkg)) return
         val n = event.source ?: return
         if (n.isEditable || n.isPassword) return   // double tap in a text field = normal word selection
+        val cls = n.className?.toString().orEmpty()
+        if (controlClasses.any { cls.endsWith(it) }) return   // buttons, icons, switches: never
+        if (n.isCheckable) return
         val text = textOf(n)
+        if (text.length < 2) return
+        // A short label on something clickable is a button (e.g. "Weiter", "OK"), not text worth copying
+        if (n.isClickable && text.length < 20 && !text.contains(' ')) return
         lastTap = "Antippen in ${appName(event.packageName)} gemeldet: „${text.take(30).replace('\n', ' ')}“"
         // Same element = same app/window and same text (bounds may shift when the app highlights it).
         val key = "${event.packageName}|${n.windowId}|${n.viewIdResourceName ?: n.className}|${text.take(80)}"
@@ -66,13 +81,8 @@ class Copier(private val svc: ExpanderService) {
 
     // ── Long press → everything on screen ─────────────────────────────────
 
-    fun onLongClick(event: AccessibilityEvent) {
-        if (!Features.on(svc, "copy")) return
-        val n = event.source ?: return
-        if (n.isEditable || n.isPassword) return   // long press in a text field = normal selection
-        lastTap = "Lange drücken in ${appName(event.packageName)} gemeldet"
-        handler.postDelayed({ copy(allText(), everything = true) }, 150)
-    }
+    // Long press is deliberately NOT used any more: apps use it to select, react or drag.
+    // "Copy everything" lives on the tile (hold).
 
     /** All visible text of the current screen, in reading order. Chat apps: only the messages. */
     private fun allText(): String {
