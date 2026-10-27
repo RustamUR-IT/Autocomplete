@@ -28,7 +28,8 @@ object Docs {
         Cat("uni", "FH & Uni", "🎓", true, listOf("fh", "uni", "zeugnis", "transcript", "immatrikulation", "inskription", "studienbestätigung", "studienbestaetigung", "studienblatt", "bachelor", "master", "prüfung", "pruefung", "exam", "semester", "ects", "stipendium", "studienbeihilfe", "notenspiegel", "sammelzeugnis", "matura", "diplom", "zertifikat", "certificate", "lehrveranstaltung", "skript", "vorlesung", "übung", "uebung", "abgabe", "praktikum")),
         Cat("finance", "Finanzen", "🏦", true, listOf("kontoauszug", "statement", "bank", "iban", "kredit", "loan", "steuer", "tax", "finanzamt", "arbeitnehmerveranlagung", "lohnzettel", "gehalt", "lohn", "payslip", "salary", "dienstzettel", "jahreslohnzettel", "l16", "sparen", "depot", "überweisung", "ueberweisung")),
         Cat("health", "Gesundheit", "🩺", true, listOf("befund", "arzt", "doctor", "rezept", "impf", "vaccin", "krank", "spital", "krankenhaus", "labor", "röntgen", "roentgen", "mrt", "therapie", "zahnarzt", "medikament", "attest", "krankmeldung")),
-        Cat("invoice", "Rechnungen & Belege", "🧾", false, listOf("rechnung", "invoice", "beleg", "receipt", "quittung", "kassenbon", "bon", "bestellung", "order", "zahlung", "payment", "mahnung", "gutschrift", "lieferschein", "auftragsbestätigung")),
+        Cat("invoice", "Rechnungen & Belege", "🧾", false, listOf("rechnung", "invoice", "beleg", "receipt", "quittung", "kassenbon", "bon", "bestellung", "order", "zahlung", "payment", "mahnung", "gutschrift", "lieferschein", "auftragsbestätigung",
+            "amazon", "mediamarkt", "saturn", "zalando", "ikea", "shein", "temu", "aliexpress", "ebay", "willhaben", "paypal", "klarna", "hornbach", "obi", "dm", "billa", "spar", "hofer", "lidl", "thalia", "apple", "nothing", "cyberport", "e-tec", "conrad", "hm", "zara", "nike", "adidas", "decathlon", "gymshark", "myprotein")),
         Cat("warranty", "Garantie", "🔧", false, listOf("garantie", "warranty", "gewährleistung", "gewaehrleistung", "kaufbeleg", "kaufvertrag", "seriennummer", "serial")),
         Cat("work", "Arbeit", "💼", false, listOf("lebenslauf", "cv", "resume", "bewerbung", "application", "arbeitszeugnis", "dienstzeugnis", "referenz", "motivationsschreiben", "jobs", "stellen", "gehaltsabrechnung")),
         Cat("travel", "Reisen & Tickets", "✈️", false, listOf("ticket", "flug", "flight", "boarding", "hotel", "booking", "buchung", "reservierung", "reservation", "bahn", "öbb", "oebb", "zug", "train", "klimaticket", "jahreskarte", "wiener linien", "semesterticket", "konzert", "event", "eintritt")),
@@ -49,6 +50,46 @@ object Docs {
         }
         return (best ?: cats.last()) to bestHits.coerceAtMost(3)
     }
+
+    private val datePatterns = listOf(
+        Regex("(20\\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\\d|3[01])") to "ymd",   // 2026-03-14, 20260314
+        Regex("(0[1-9]|[12]\\d|3[01])[-_.](0[1-9]|1[0-2])[-_.](20\\d{2})") to "dmy",         // 14.03.2026
+        Regex("(20\\d{2})[-_.](0[1-9]|1[0-2])(?![\\d])") to "ym",                             // 2026-03
+    )
+
+    /** Finds a date in a file name like "Rechnung_2026-03-14.pdf" or "IMG_20261019_123456.jpg". */
+    fun dateFromName(name: String): LocalDate? {
+        for ((re, kind) in datePatterns) {
+            val m = re.find(name) ?: continue
+            val g = m.groupValues
+            return try {
+                when (kind) {
+                    "ymd" -> LocalDate.of(g[1].toInt(), g[2].toInt(), g[3].toInt())
+                    "dmy" -> LocalDate.of(g[3].toInt(), g[2].toInt(), g[1].toInt())
+                    else -> LocalDate.of(g[1].toInt(), g[2].toInt(), 1)
+                }.takeIf { !it.isAfter(LocalDate.now().plusDays(1)) && it.year >= 2000 }
+            } catch (e: Exception) { null }
+        }
+        return null
+    }
+
+    private val shops = linkedMapOf(
+        "amazon" to "Amazon", "mediamarkt" to "MediaMarkt", "saturn" to "Saturn", "zalando" to "Zalando", "ikea" to "IKEA",
+        "shein" to "Shein", "temu" to "Temu", "aliexpress" to "AliExpress", "ebay" to "eBay", "willhaben" to "willhaben",
+        "hornbach" to "Hornbach", "obi" to "OBI", "thalia" to "Thalia", "apple" to "Apple", "nothing" to "Nothing",
+        "cyberport" to "Cyberport", "e-tec" to "e-tec", "conrad" to "Conrad", "decathlon" to "Decathlon",
+        "gymshark" to "Gymshark", "myprotein" to "Myprotein", "nike" to "Nike", "adidas" to "adidas", "zara" to "Zara",
+    )
+
+    /** Shop name mentioned in a file name, e.g. "Rechnung_Amazon_2026.pdf" → "Amazon". */
+    fun shopIn(name: String): String? {
+        val n = name.lowercase()
+        return shops.entries.firstOrNull { (k, _) -> Regex("(^|[^a-z])" + Regex.escape(k) + "([^a-z]|$)").containsMatchIn(n) }?.value
+    }
+
+    /** Same file already in the vault? (name + size) */
+    fun duplicateOf(ctx: Context, name: String, size: Long): Rec? =
+        all(ctx).firstOrNull { it["name"] == name && it["size"]?.toLongOrNull() == size }
 
     fun isDocumentFile(name: String, mime: String?): Boolean {
         val ext = name.substringAfterLast('.', "").lowercase()
@@ -78,6 +119,10 @@ object Docs {
     fun import(ctx: Context, uri: Uri, title: String? = null, catId: String? = null, note: String = "", expiry: String = ""): Rec {
         val cr = ctx.contentResolver
         val name = nameOf(cr, uri)
+        val srcSize = try {
+            cr.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else -1L } ?: -1L
+        } catch (e: Exception) { -1L }
+        if (srcSize > 0) duplicateOf(ctx, name, srcSize)?.let { return it }   // already saved – don't store twice
         val mime = cr.getType(uri) ?: guessMime(name)
         val id = System.currentTimeMillis().toString(36) + (0..999).random()
         val safeName = name.replace(Regex("[^A-Za-z0-9._ÄÖÜäöüß-]"), "_").take(80)
@@ -93,6 +138,7 @@ object Docs {
             "size" to target.length().toString(),
             "file" to target.name,
             "added" to LocalDate.now().format(DATE),
+            "date" to (dateFromName(name)?.format(DATE) ?: ""),
             "src" to uri.toString(),
             "note" to note,
             "expiry" to expiry,
@@ -247,7 +293,8 @@ object DocScanner {
     /** All candidate files in all roots, best matches first. Slow – run off the main thread. */
     fun scan(ctx: Context, onlyImportant: Boolean = false): List<Find> {
         val cr = ctx.contentResolver
-        val known = Docs.all(ctx).mapNotNull { it["src"] }.toSet()
+        // Already in the vault: same source file, or same name + size (= duplicate)
+        val known = Docs.all(ctx).mapNotNull { it["src"] }.toSet() + Docs.all(ctx).map { it["name"] + "|" + it["size"] }
         val skip = dismissed(ctx)
         val out = ArrayList<Find>()
         for (r in roots(ctx)) {
@@ -285,7 +332,7 @@ object DocScanner {
                 if (size < 2_000 && mime?.startsWith("image/") == true) continue   // icons, stickers
                 val uri = DocumentsContract.buildDocumentUriUsingTree(tree, id)
                 val s = uri.toString()
-                if (s in known || s in skip) continue
+                if (s in known || s in skip || "$name|$size" in known) continue
                 val (cat, score) = Docs.classify(name)
                 // PDFs in folders like "Documents" are usually worth a look even without a keyword
                 val bonus = if (score == 0 && mime == "application/pdf" && folder.contains("ocument", true)) 1 else 0

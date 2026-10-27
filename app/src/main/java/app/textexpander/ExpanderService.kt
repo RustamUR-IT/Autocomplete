@@ -44,6 +44,12 @@ class ExpanderService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        try { start() } catch (t: Throwable) {
+            Store.putStr(this, "last_crash", "Start: ${t.javaClass.simpleName}: ${t.message}".take(160))
+        }
+    }
+
+    private fun start() {
         suggest = SuggestController(this)
         places = PlaceWatcher(this).also { it.start() }
         copier = Copier(this)
@@ -65,6 +71,7 @@ class ExpanderService : AccessibilityService() {
             if (i.action == Intent.ACTION_SCREEN_OFF) {
                 fgPkg = ""
                 doomHandler.removeCallbacks(doomCheck)
+                suggest?.hide()
             } else {
                 rootInActiveWindow?.packageName?.toString()?.let { trackForeground(it) }
             }
@@ -118,12 +125,22 @@ class ExpanderService : AccessibilityService() {
         return super.onUnbind(intent)
     }
 
+    /** Errors seen inside event handling – shown in Settings instead of crashing the service. */
+    @Volatile var lastCrash = ""
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        when (event.eventType) {
-            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> onText(event)
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> onWindow(event)
-            AccessibilityEvent.TYPE_VIEW_FOCUSED -> onFocus(event)
-            AccessibilityEvent.TYPE_VIEW_CLICKED -> { copier?.onClick(event); onFocus(event) }
+        // A crash in one handler must never kill the service – Android would switch it off
+        // and you'd have to re-enable it in the settings.
+        try {
+            when (event.eventType) {
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> onText(event)
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> onWindow(event)
+                AccessibilityEvent.TYPE_VIEW_FOCUSED -> onFocus(event)
+                AccessibilityEvent.TYPE_VIEW_CLICKED -> { copier?.onClick(event); onFocus(event) }
+            }
+        } catch (t: Throwable) {
+            lastCrash = "${t.javaClass.simpleName}: ${t.message}".take(160)
+            Store.putStr(this, "last_crash", "${java.time.LocalDateTime.now().withNano(0)} · $lastCrash")
         }
     }
 

@@ -33,6 +33,8 @@ class SettingsActivity : Activity() {
                 ListActivity.open(this@SettingsActivity, "nocopy")
             }
             label("Diagnose Kopieren: ${Copier.lastTap}", 12f, muted = true, mono = true, topDp = 10)
+            val crash = Store.getStr(context, "last_crash", "")
+            if (crash.isNotEmpty()) label("Letzter abgefangener Fehler: $crash", 12f, muted = true, mono = true, topDp = 4)
         }
 
         // ── Backup ────────────────────────────────────────────────────────

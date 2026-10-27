@@ -105,8 +105,8 @@ class DocsActivity : Activity() {
         list.removeAllViews()
         val docs = Docs.all(this)
             .filter { catFilter == null || it["cat"] == catFilter }
-            .filter { query.isBlank() || listOf(it["title"], it["name"], it["note"], Docs.cat(it["cat"]).title).any { v -> v?.contains(query, true) == true } }
-            .sortedByDescending { it["id"] }
+            .filter { query.isBlank() || listOf(it["title"], it["name"], it["note"], it["date"], Docs.cat(it["cat"]).title).any { v -> v?.contains(query, true) == true } }
+            .sortedByDescending { Docs.parseDate(it["date"]) ?: Docs.parseDate(it["added"]) }
         if (docs.isEmpty()) list.label(if (Docs.all(this).isEmpty()) "Noch leer. Füge eine Datei hinzu oder lass FlowKit im Tab „Gefunden“ suchen." else "Nichts gefunden.", 13f, muted = true, topDp = 16)
         for (d in docs) {
             val k = Docs.cat(d["cat"])
@@ -115,7 +115,8 @@ class DocsActivity : Activity() {
                 label("${k.icon} ${k.title.uppercase()}", 11f, muted = true, mono = true, topDp = 0)
                 label(d["title"].orEmpty(), 16f, bold = true, topDp = 0)
                 val meta = buildString {
-                    append(d["name"]); append(" · "); append(Docs.sizeText(d["size"]?.toLongOrNull() ?: 0)); append(" · "); append(d["added"])
+                    append(d["name"]); append(" · "); append(Docs.sizeText(d["size"]?.toLongOrNull() ?: 0))
+                    append(" · "); append(d["date"]?.takeIf { it.isNotBlank() }?.let { "vom $it" } ?: "gespeichert ${d["added"]}")
                     if (expiry != null) append(if (expiry < 0) "\n⛔ abgelaufen (${d["expiry"]})" else if (expiry < 60) "\n⚠️ läuft ab in $expiry Tagen (${d["expiry"]})" else "\ngültig bis ${d["expiry"]}")
                     if (!d["note"].isNullOrBlank()) append("\n").append(d["note"])
                 }
@@ -238,7 +239,8 @@ class DocsActivity : Activity() {
         list.card {
             label("${x.cat.icon} ${x.cat.title.uppercase()}" + if (x.score >= 2) "  ★" else "", 11f, muted = true, mono = true, topDp = 0)
             label(x.name, 15f, bold = true, topDp = 0)
-            label("${x.folder} · ${Docs.sizeText(x.size)} · $when_", 12f, muted = true)
+            val dated = Docs.dateFromName(x.name)?.format(Docs.DATE)
+            label("${x.folder} · ${Docs.sizeText(x.size)} · ${dated?.let { "vom $it" } ?: when_}", 12f, muted = true)
             row {
                 pill("Übernehmen", primary = true) {
                     try { Docs.import(this@DocsActivity, x.uri, catId = x.cat.id); toast("Gespeichert") } catch (e: Exception) { toast("Fehler: ${e.message}") }
@@ -299,8 +301,10 @@ class DocsActivity : Activity() {
             return input(value, hint, number = number).also { box.addView(it) }
         }
         val product = field("Produkt", w?.get("product") ?: prefillDoc?.get("title").orEmpty(), "z. B. Nothing Phone 3a")
-        val store = field("Gekauft bei", w?.get("store").orEmpty(), "MediaMarkt, Amazon …")
-        val bought = field("Kaufdatum", w?.get("bought") ?: prefillDoc?.get("added") ?: LocalDate.now().format(Docs.DATE), "TT.MM.JJJJ")
+        val store = field("Gekauft bei", w?.get("store") ?: prefillDoc?.get("name")?.let { Docs.shopIn(it) }.orEmpty(), "MediaMarkt, Amazon …")
+        val bought = field("Kaufdatum", w?.get("bought")
+            ?: prefillDoc?.get("date")?.takeIf { it.isNotBlank() }
+            ?: prefillDoc?.get("added") ?: LocalDate.now().format(Docs.DATE), "TT.MM.JJJJ")
         val months = field("Garantie (Monate)", w?.get("months") ?: "24", number = true)
         val price = field("Preis (optional)", w?.get("price").orEmpty(), "€", number = true)
         val note = field("Notiz / Seriennummer", w?.get("note").orEmpty())

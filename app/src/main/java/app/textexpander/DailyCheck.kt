@@ -26,7 +26,7 @@ class DailyCheck : BroadcastReceiver() {
                 set(Calendar.HOUR_OF_DAY, 9); set(Calendar.MINUTE, 5); set(Calendar.SECOND, 0)
                 if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
             }
-            am.setInexactRepeating(AlarmManager.RTC_WAKEUP, next.timeInMillis, AlarmManager.INTERVAL_DAY, pi)
+            try { am.setInexactRepeating(AlarmManager.RTC_WAKEUP, next.timeInMillis, AlarmManager.INTERVAL_DAY, pi) } catch (e: Exception) { }
         }
 
         fun run(ctx: Context) {

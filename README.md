@@ -1,58 +1,69 @@
 # FlowKit – Android (Nothing Phone 3a)
 
-Eine App, zehn Werkzeuge: Text-Kürzel, Smart Clipboard, Quick Launcher, Study Mode, Workout Mode,
-KI-Text-Aktionen, Brain Dump, C-Spickzettel, Habit Friction und dynamische Snippets.
-Funktioniert mit jeder Tastatur. Keine Internet-Berechtigung – alles bleibt auf dem Handy.
+Ein Werkzeugkasten fürs Handy: Text-Kürzel, smarte Vorschläge pro Person, Dokumente-Tresor mit Garantien,
+Fokus-Modi für FH und Gym, Kopieren per Doppeltipp und mehr. Funktioniert mit jeder Tastatur.
+**Keine Internet-Berechtigung** – alles bleibt auf dem Handy.
 
-## 1. APK bauen
+## Installieren
 
-**Über GitHub (nichts installieren):**
-1. Auf github.com ein neues **privates** Repository anlegen.
-2. „uploading an existing file“ → den **Inhalt** dieses Ordners hineinziehen (inkl. `.github`, `gradle`, `gradlew`).
-   Tipp: Versteckte Ordner zeigt der Windows-Explorer unter *Ansicht → Ausgeblendete Elemente*.
-3. Tab **Actions** → Lauf „Build APK“ abwarten (~4 min) → unten **FlowKit-apk** herunterladen → entpacken → `app-release.apk`.
+**Download (immer die neueste Version):**
+https://github.com/RustamUR-IT/Autocomplete/releases/download/latest/FlowKit.apk
 
-**Mit Android Studio:** Ordner öffnen → *Build → Build App Bundle(s)/APK(s) → Build APK(s)*.
-
-## 2. Installieren & einrichten
-
-1. `app-release.apk` aufs Handy kopieren, öffnen, „Unbekannte Apps installieren“ erlauben.
+1. Link im Handy-Browser öffnen, APK öffnen, „Unbekannte Apps installieren“ erlauben.
+   Play Protect warnt → „Weitere Details“ → „Trotzdem installieren“.
 2. FlowKit öffnen und die Einrichtung oben abarbeiten:
-   - **Bedienungshilfe einschalten** (für Kürzel, Launcher, Habit Friction).
-     Ausgegraut? *Einstellungen → Apps → FlowKit → ⋮ → Eingeschränkte Einstellungen zulassen*, dann nochmal.
-   - **„Nicht stören“-Zugriff** erlauben (für Study/Workout Mode).
-   - **Benachrichtigungen** erlauben (Timer).
-3. Schnelleinstellungen runterziehen → Stift → Kacheln **Brain Dump** und **Study Mode** hinzufügen.
+   - **Bedienungshilfe einschalten.** Ausgegraut? Einstellungen → Apps → FlowKit → ⋮ → „Eingeschränkte Einstellungen zulassen“, dann nochmal.
+   - **„Nicht stören“-Zugriff** (Fokus-/Orts-Modi) und **Benachrichtigungen** (Timer, Garantie-Erinnerungen).
+3. Schnelleinstellungen → Stift → Kacheln **Brain Dump**, **Study Mode**, **Text kopieren** hinzufügen.
 
-## 3. Was wo ist
+Updates installieren sich über die alte Version, Daten bleiben erhalten.
+
+## Funktionen
+
+Jede Funktion lässt sich unter **Einstellungen → Funktionen** einzeln abschalten.
 
 | Funktion | So benutzt du sie |
 |---|---|
-| Smarte Vorschläge | Lernt lokal, wie du schreibst – pro Person/Chat. Chips über dem Eingabefeld: Wort fertig, nächstes Wort, ganze Sätze, Schnellantworten bei leerem Feld |
-| Antwort-Paare | Merkt sich, was du auf welche Nachricht antwortest (pro Person). Schreibt sie „gute Nacht“, kommt deine übliche Antwort als ↩-Chip |
-| Lieblingsantworten | Pro Person feste Antworten (z. B. Lena → „ily pookie“), erscheinen in ihrem Chat immer zuerst |
-| Orts-Modi | WLAN als Ort speichern: Gym → Workout Mode (1 Tipp), FH → „Nicht stören“ automatisch |
-| Funktionen an/aus | Einstellungen → Funktionen: jede Funktion einzeln abschaltbar (verschwindet auch aus Textmenü & Kacheln) |
-| Backup | Einstellungen → Backup speichern / Wiederherstellen (JSON-Datei, z. B. auf Google Drive) |
-| Doomscroll-Limit | Standard aus. Nach X Minuten am Stück in gebremsten Apps ein Hinweis mit Alternativen |
-| Doppeltippen = kopieren | Doppeltippen auf Text kopiert den Abschnitt (nicht in Chat-Apps wie WhatsApp, dort ist es Liken). Kachel „Text kopieren“: tippen = Abschnitt, halten = alles. Wo das nicht geht: Kachel „Text kopieren“ → auf beliebigen Text tippen |
-| Dokumente | Tresor für wichtige Unterlagen (Ausweise, Verträge, Zeugnisse, Rechnungen …). Findet in freigegebenen Ordnern automatisch wichtige Dateien. „Teilen → FlowKit“ aus jeder App |
-| Garantien | Produkt + Kaufdatum + Beleg; Erinnerung 30 / 7 / 1 Tage vor Ablauf |
-| Text-Kürzel | `;mail` `;adr` `;ty` `;lg` `;mfg` `;hallo` `;krank` `;main` `;pf` `;sf` `;for` … in jeder App tippen |
-| Dynamische Snippets | `;date` `;today` `;now` `;week` `;iso` `;morgen` – Platzhalter: `{date} {isodate} {time} {weekday} {week} {tomorrow} {cursor}` |
-| Smart Clipboard | Kategorien Texte / Links / Uni / Code. Antippen = kopieren. Text markieren → „In Clipboard speichern“ oder aus jeder App teilen |
-| Quick Launcher | `;fh` `;moodle` `;gym` `;notiz` `;lernen` `;workout` `;cheat` `;clip` – Ziel: Webseite, App oder Aktion |
-| Study Mode | DND + 50-min-Timer + öffnet deine Lern-Apps. Über Startseite, Kachel oder `;lernen` |
-| Workout Mode | Musik (Play-Taste) + 60-min-Timer + Satzpausen-Timer mit Vibration, DND, Display bleibt an |
-| Text-Aktionen | Text markieren → „Erklären“, „Zusammenfassen“, „Übersetzen“, „Als Lernfrage“ → geht an Copilot (änderbar: ChatGPT, Claude, Gemini) |
-| Brain Dump | Kachel antippen → tippen → speichern |
-| C-Spickzettel | scanf, printf, Arrays, Pointer, Strings, Schleifen, struct, malloc, Dateien, typische Fehler – erweiterbar |
-| Habit Friction | Instagram, TikTok, Snapchat, X, Reddit zeigen erst 10 s Wartezeit + Alternativen, danach 5 min frei |
-
-**Zuerst eintragen:** Ziele für `;fh`, `;moodle`, `;gym`, deine Mail bei `;mail`, Adresse bei `;adr`, Lern-Apps im Study Mode.
+| ⌨️ Text-Kürzel | `;mail` `;adr` `;ty` `;lg` `;mfg` `;hallo` `;krank` `;main` `;pf` `;sf` `;for` … in jeder App tippen |
+| 📅 Dynamische Snippets | `;date` `;today` `;now` `;week` `;iso` `;morgen` – Platzhalter `{date} {isodate} {time} {weekday} {week} {tomorrow} {cursor}` |
+| 💡 Smarte Vorschläge | Lernt lokal, wie du schreibst – pro Person. Chips über dem Eingabefeld (nur bei offener Tastatur): Wort fertig, nächstes Wort, ganze Sätze |
+| ↩ Antwort-Paare | Merkt sich, was du auf welche Nachricht antwortest. Schreibt sie „gute Nacht“, kommt deine übliche Antwort |
+| ⭐ Lieblingsantworten | Pro Person feste Antworten, immer zuerst |
+| 🕘 Tageszeit | Schnellantworten, die du meist um diese Uhrzeit schickst, stehen weiter vorne |
+| 👆 Doppeltippen = kopieren | Doppeltippen auf Text kopiert den Abschnitt (nicht in WhatsApp & Co., dort ist es Liken). Kachel „Text kopieren“: tippen = Abschnitt, halten = alles |
+| 📁 Dokumente | Tresor mit Kategorien, Suche, „Gültig bis“-Erinnerung. Erkennt Datum und Händler im Dateinamen, speichert nichts doppelt. „Teilen → In FlowKit-Tresor speichern“ aus jeder App |
+| 🔍 Gefunden | Ordner freigeben (Download, WhatsApp Documents …) → FlowKit findet Rechnungen, Verträge, Zeugnisse, Shop-Screenshots |
+| 🔧 Garantien | Produkt + Kaufdatum + Beleg (Datum & Händler werden vorbelegt); Erinnerung 30 / 7 / 1 Tage vor Ablauf |
+| 📋 Smart Clipboard | Gespeicherte Texte, Links, Uni, Code. Text markieren → „In Clipboard speichern“ |
+| 🚀 Quick Launcher | `;fh` `;moodle` `;gym` `;notiz` `;lernen` … öffnen Seite, App oder Aktion |
+| 🎯 Fokus-Modi | Study Mode (DND, 50-min-Timer, Lern-Apps) · Workout Mode (Musik, Timer, Satzpausen) |
+| 📍 Orts-Modi | WLAN als Ort speichern: Gym → Workout Mode (1 Tipp), FH → „Nicht stören“ |
+| ✨ Text-Aktionen | Text markieren → Erklären / Zusammenfassen / Übersetzen / Lernfrage → an Copilot, ChatGPT, Claude oder Gemini |
+| 🧠 Brain Dump | Kachel antippen → Gedanke tippen → speichern |
+| 💻 C-Spickzettel | scanf, printf, Arrays, Pointer, Strings, Schleifen, struct, malloc, Dateien, typische Fehler |
+| 🛑 Habit Friction | Social Media zeigt erst 10 s Wartezeit + Alternativen; optional Doomscroll-Limit |
+| 💾 Backup | Einstellungen → Backup speichern / Wiederherstellen (JSON, z. B. auf Google Drive) |
 
 ## Grenzen
 
-- Mehrere Lern-Apps öffnen nacheinander; vorne liegt die letzte, die anderen sind unter „Letzte Apps“.
-- Text-Aktionen: Der Prompt wird an die Assistenten-App geschickt **und** kopiert – falls das Eingabefeld leer bleibt, einfach einfügen.
-- Die Startbildschirm-Anordnung kann eine App nicht ändern: Social Media selbst in einen Ordner auf die letzte Seite legen.
+- Vorschläge lernen nur aus dem, was du auf dem Handy schreibst – am Anfang erscheinen bewusst wenige Chips.
+- Doppeltippen funktioniert nur, wo die App das Antippen meldet; sonst die Kachel „Text kopieren“ nutzen.
+- Der Tresor-Inhalt ist nicht im JSON-Backup – Dateien bleiben bei Updates, gehen aber bei einer Deinstallation verloren.
+- Workout/Study Mode über Orts-Modi kommen als Benachrichtigung (Android erlaubt kein ungefragtes Öffnen).
+
+## Changelog
+
+| Version | Änderungen |
+|---|---|
+| 4.2 | Service fängt Fehler ab statt sich abzuschalten · Chips nur bei offener Tastatur, verschwinden bei Display aus · Dokumente: Datum & Händler aus Dateinamen, keine Duplikate, Shop-Screenshots als Beleg · Schnellantworten nach Tageszeit · Fehleranzeige in den Einstellungen |
+| 4.1 | Langes Drücken kopiert nicht mehr · Doppeltippen nur auf Text, Chat-Apps ausgenommen |
+| 4.0 | Dokumente-Tresor, automatische Funde, Garantien mit Erinnerung |
+| 3.9 | Vorschläge: keine veralteten Chips, strengere Auswahl, kein Flackern |
+| 3.8 | Chips folgen dem Eingabefeld · Kopier-Diagnose |
+| 3.6–3.7 | Doppeltippen / Kachel „Text kopieren“ |
+| 3.5 | Antwort-Paare |
+| 3.4 | Funktionen an/aus · Backup · Doomscroll-Limit |
+| 3.3 | Lieblingsantworten · Orts-Modi |
+| 3.0–3.2 | Smarte Vorschläge · fester Signaturschlüssel |
+| 2.0 | Clipboard, Launcher, Fokus-Modi, Text-Aktionen, Brain Dump, C-Spickzettel, Habit Friction |
+| 1.0 | Text-Kürzel |

@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -77,12 +78,42 @@ class SuggestController(private val svc: ExpanderService) {
 
     /** After a screen change: work out the chat, and offer quick replies if the input field is empty. */
     private val windowSettled = Runnable {
-        refreshContext()
-        val focused = svc.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        if (focused != null && focused.isEditable && !focused.isPassword) {
-            val t = if (focused.isShowingHintText) "" else focused.text?.toString().orEmpty()
-            readIncoming(focused)
-            if (t.isBlank() && showOn()) { node = focused; showReplies(focused) }
+        safe {
+            refreshContext()
+            val focused = svc.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            if (focused != null && focused.isEditable && !focused.isPassword) {
+                val t = if (focused.isShowingHintText) "" else focused.text?.toString().orEmpty()
+                readIncoming(focused)
+                if (t.isBlank() && showOn()) { node = focused; showReplies(focused) }
+            }
+        }
+    }
+
+    /** Timer callbacks run outside the service's try/catch – keep them from crashing it too. */
+    private inline fun safe(block: () -> Unit) {
+        try { block() } catch (t: Throwable) {
+            Store.putStr(svc, "last_crash", "Vorschläge: ${t.javaClass.simpleName}: ${t.message}".take(160))
+            hide()
+        }
+    }
+
+    /** Chips only make sense while you're typing, i.e. while the keyboard is open. */
+    private fun keyboardOpen(): Boolean = try {
+        svc.windows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+    } catch (e: Exception) { true }
+
+    private var pendingList: List<Suggestion>? = null
+    private var pendingNode: AccessibilityNodeInfo? = null
+    private var waitTries = 0
+
+    /** The keyboard window appears a moment after the field is tapped – wait for it briefly. */
+    private val waitForKeyboard = object : Runnable {
+        override fun run() = safe {
+            val l = pendingList ?: return@safe
+            val n = pendingNode ?: return@safe
+            if (keyboardOpen()) { pendingList = null; showNow(l, n) }
+            else if (++waitTries < 6) handler.postDelayed(this, 150)
+            else pendingList = null
         }
     }
 
@@ -313,7 +344,19 @@ class SuggestController(private val svc: ExpanderService) {
     private val lastField = Rect()
 
     private fun show(list: List<Suggestion>, n: AccessibilityNodeInfo) {
-        if (list.isEmpty()) { hide(); return }
+        if (list.isEmpty()) { pendingList = null; hide(); return }
+        if (!keyboardOpen()) {
+            hide()
+            pendingList = list; pendingNode = n; waitTries = 0
+            handler.removeCallbacks(waitForKeyboard)
+            handler.postDelayed(waitForKeyboard, 150)
+            return
+        }
+        pendingList = null
+        showNow(list, n)
+    }
+
+    private fun showNow(list: List<Suggestion>, n: AccessibilityNodeInfo) {
         ensureView()
         val r = root!!
         val b = bar!!
@@ -372,10 +415,14 @@ class SuggestController(private val svc: ExpanderService) {
 
     /** While visible: follow the field when the keyboard opens/closes or the layout shifts; vanish with it. */
     private val follow = object : Runnable {
-        override fun run() {
+        override fun run() = safe { followStep() }
+    }
+
+    private fun followStep() {
+        run {
             if (!attached) return
             val n = anchored ?: run { hide(); return }
-            if (!n.refresh() || !n.isVisibleToUser || !n.isFocused) { hide(); return }
+            if (!n.refresh() || !n.isVisibleToUser || !n.isFocused || !keyboardOpen()) { hide(); return }
             val text = if (n.isShowingHintText) "" else n.text?.toString().orEmpty()
             var cur = n.textSelectionEnd
             if (cur < 0 || cur > text.length) cur = text.length
@@ -387,13 +434,15 @@ class SuggestController(private val svc: ExpanderService) {
             } else {
                 place(n, force = false)
             }
-            handler.postDelayed(this, 250)
+            handler.postDelayed(follow, 250)
         }
     }
 
     fun hide() {
         handler.removeCallbacks(hideTask)
         handler.removeCallbacks(follow)
+        handler.removeCallbacks(waitForKeyboard)
+        pendingList = null
         anchored = null
         if (attached) {
             try { wm.removeView(root) } catch (e: Exception) { }

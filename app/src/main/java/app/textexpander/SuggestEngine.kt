@@ -20,7 +20,8 @@ class ContactInfo(val key: String, val title: String, val pkg: String, val messa
  */
 class SuggestEngine private constructor(private val app: Context) {
 
-    private class Msg(val text: String, var n: Int, var last: Long)
+    /** [hours]: bit h is set if you've sent this message at hour h (0–23) – for time-of-day ranking. */
+    private class Msg(val text: String, var n: Int, var last: Long, var hours: Int = 0)
 
     /** "They wrote [inText] → you answered [reply]". */
     private class PairRec(val inNorm: String, val inText: String, val reply: String, var n: Int, var last: Long)
@@ -107,7 +108,8 @@ class SuggestEngine private constructor(private val app: Context) {
             if (t.length in 2..300) {
                 val k = t.lowercase()
                 val m = c.msgs[k]
-                if (m == null) c.msgs[k] = Msg(t, 1, now) else { m.n++; m.last = now }
+                val bit = 1 shl java.time.LocalTime.now().hour
+                if (m == null) c.msgs[k] = Msg(t, 1, now, bit) else { m.n++; m.last = now; m.hours = m.hours or bit }
                 if (c.msgs.size > 80) c.msgs.entries.minByOrNull { msgScore(it.value) }?.let { c.msgs.remove(it.key) }
             }
         }
@@ -130,7 +132,15 @@ class SuggestEngine private constructor(private val app: Context) {
 
     private fun msgScore(m: Msg): Double {
         val days = (System.currentTimeMillis() - m.last) / 86_400_000.0
-        return m.n * 2.0 + 5.0 / (1.0 + days)
+        return m.n * 2.0 + 5.0 / (1.0 + days) + timeBonus(m.hours)
+    }
+
+    /** Messages you usually send around this time of day (±1 h) move up – "gute Nacht" in the evening. */
+    private fun timeBonus(hours: Int): Double {
+        if (hours == 0) return 0.0
+        val h = java.time.LocalTime.now().hour
+        val near = (1 shl h) or (1 shl ((h + 1) % 24)) or (1 shl ((h + 23) % 24))
+        return if (hours and near != 0) 4.0 else -1.0
     }
 
     // ── Reply pairs ───────────────────────────────────────────────────────
@@ -346,7 +356,7 @@ class SuggestEngine private constructor(private val app: Context) {
                     put("bi", nested(c.bi))
                     put("pairs", pairsJson(c.pairs))
                     put("msgs", JSONArray().apply {
-                        c.msgs.values.forEach { m -> put(JSONObject().put("t", m.text).put("n", m.n).put("l", m.last)) }
+                        c.msgs.values.forEach { m -> put(JSONObject().put("t", m.text).put("n", m.n).put("l", m.last).put("h", m.hours)) }
                     })
                 })
             }
@@ -392,7 +402,7 @@ class SuggestEngine private constructor(private val app: Context) {
                         for (i in 0 until arr.length()) {
                             val m = arr.getJSONObject(i)
                             val t = m.optString("t")
-                            c.msgs[t.lowercase()] = Msg(t, m.optInt("n", 1), m.optLong("l"))
+                            c.msgs[t.lowercase()] = Msg(t, m.optInt("n", 1), m.optLong("l"), m.optInt("h", 0))
                         }
                     }
                     ctxs[k] = c
