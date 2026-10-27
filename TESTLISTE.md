@@ -17,6 +17,7 @@ Nach jedem Update einmal durchgehen. Bei einem ❌: Screenshot vom Fehler **und*
 - [ ] Tastatur schließen → Chips verschwinden sofort
 - [ ] Nachricht tippen und senden → Chips verschwinden, nichts bleibt mitten im Chat hängen
 - [ ] Lieblingsantwort für eine Person anlegen → in ihrem Chat erscheint sie als roter Chip
+- [ ] Einen Chip lange drücken → „wird nicht mehr vorgeschlagen“, Chip verschwindet
 
 ## 3. Kopieren (1 min)
 - [ ] In Chrome doppelt auf einen Absatz tippen → „📋 Kopiert: …“
@@ -30,6 +31,9 @@ Nach jedem Update einmal durchgehen. Bei einem ❌: Screenshot vom Fehler **und*
 - [ ] Tab „Gefunden“ → Ordner „Download“ freigeben → Funde erscheinen, Datum „vom …“ stimmt
 - [ ] Beleg lange drücken → „Garantie dazu anlegen“ → Kaufdatum & Händler vorbelegt
 - [ ] Garantie mit Kaufdatum vor 23 Monaten anlegen → Liste zeigt ⚠️ „noch … Tage“
+- [ ] Liste zeigt Vorschaubilder bei Fotos und PDFs
+- [ ] Dokument lange drücken → „Mehrere auswählen“ → 2 antippen → „Teilen“ öffnet z. B. WhatsApp mit beiden Dateien
+- [ ] „💾 Als ZIP sichern“ → Datei in Drive/Downloads speichern
 
 ## 5. Rest (2 min, nur was du nutzt)
 - [ ] Study Mode starten → Timer in der Benachrichtigung, „Nicht stören“ an

@@ -30,8 +30,10 @@ Jede Funktion lässt sich unter **Einstellungen → Funktionen** einzeln abschal
 | ↩ Antwort-Paare | Merkt sich, was du auf welche Nachricht antwortest. Schreibt sie „gute Nacht“, kommt deine übliche Antwort |
 | ⭐ Lieblingsantworten | Pro Person feste Antworten, immer zuerst |
 | 🕘 Tageszeit | Schnellantworten, die du meist um diese Uhrzeit schickst, stehen weiter vorne |
+| 😊 Emoji pro Person | Nach einem fertigen Wort kommt das Emoji, das du dieser Person am häufigsten schickst |
+| 🙈 Ausblenden | Vorschlag lange drücken = nie mehr vorschlagen · Anzahl Chips einstellbar (1–5) |
 | 👆 Doppeltippen = kopieren | Doppeltippen auf Text kopiert den Abschnitt (nicht in WhatsApp & Co., dort ist es Liken). Kachel „Text kopieren“: tippen = Abschnitt, halten = alles |
-| 📁 Dokumente | Tresor mit Kategorien, Suche, „Gültig bis“-Erinnerung. Erkennt Datum und Händler im Dateinamen, speichert nichts doppelt. „Teilen → In FlowKit-Tresor speichern“ aus jeder App |
+| 📁 Dokumente | Tresor mit Vorschaubildern, Kategorien, Suche, „Gültig bis“-Erinnerung. Erkennt Datum, Händler und Betrag im Dateinamen, speichert nichts doppelt. Mehrfachauswahl (teilen, Kategorie, löschen). Als ZIP sichern & einlesen. „Teilen → In FlowKit-Tresor speichern“ aus jeder App |
 | 🔍 Gefunden | Ordner freigeben (Download, WhatsApp Documents …) → FlowKit findet Rechnungen, Verträge, Zeugnisse, Shop-Screenshots |
 | 🔧 Garantien | Produkt + Kaufdatum + Beleg (Datum & Händler werden vorbelegt); Erinnerung 30 / 7 / 1 Tage vor Ablauf |
 | 📋 Smart Clipboard | Gespeicherte Texte, Links, Uni, Code. Text markieren → „In Clipboard speichern“ |
@@ -48,13 +50,14 @@ Jede Funktion lässt sich unter **Einstellungen → Funktionen** einzeln abschal
 
 - Vorschläge lernen nur aus dem, was du auf dem Handy schreibst – am Anfang erscheinen bewusst wenige Chips.
 - Doppeltippen funktioniert nur, wo die App das Antippen meldet; sonst die Kachel „Text kopieren“ nutzen.
-- Der Tresor-Inhalt ist nicht im JSON-Backup – Dateien bleiben bei Updates, gehen aber bei einer Deinstallation verloren.
+- Der Tresor-Inhalt ist nicht im JSON-Backup – dafür im Tresor „Als ZIP sichern“ nutzen.
 - Workout/Study Mode über Orts-Modi kommen als Benachrichtigung (Android erlaubt kein ungefragtes Öffnen).
 
 ## Changelog
 
 | Version | Änderungen |
 |---|---|
+| 4.3 | Dokumente: Vorschaubilder, Mehrfachauswahl, Tresor als ZIP sichern/einlesen, Betrag aus Dateinamen · Vorschläge: Emoji pro Person, Vorschlag lange drücken = ausblenden, Anzahl Chips einstellbar |
 | 4.2 | Service fängt Fehler ab statt sich abzuschalten · Chips nur bei offener Tastatur, verschwinden bei Display aus · Dokumente: Datum & Händler aus Dateinamen, keine Duplikate, Shop-Screenshots als Beleg · Schnellantworten nach Tageszeit · Fehleranzeige in den Einstellungen |
 | 4.1 | Langes Drücken kopiert nicht mehr · Doppeltippen nur auf Text, Chat-Apps ausgenommen |
 | 4.0 | Dokumente-Tresor, automatische Funde, Garantien mit Erinnerung |

@@ -334,6 +334,13 @@ class SuggestController(private val svc: ExpanderService) {
         background = svc.rounded(if (phrase) 0xF0D71921.toInt() else 0xF0222222.toInt(), 18, 0x55FFFFFF)
         elevation = svc.dp(4).toFloat()
         setOnClickListener { apply(s) }
+        // Long press: never suggest this again (undo in FlowKit → Smarte Vorschläge)
+        setOnLongClickListener {
+            engine.block(s.insert)
+            android.widget.Toast.makeText(svc, "„${s.label.trim()}“ wird nicht mehr vorgeschlagen", android.widget.Toast.LENGTH_SHORT).show()
+            anchored?.let { n -> n.refresh(); val t = if (n.isShowingHintText) "" else n.text?.toString().orEmpty(); compute(n, t, n.textSelectionEnd.coerceIn(0, t.length)) }
+            true
+        }
         layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { setMargins(0, svc.dp(2), svc.dp(6), svc.dp(2)) }

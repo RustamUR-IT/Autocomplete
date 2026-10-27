@@ -47,6 +47,10 @@ class SuggestActivity : Activity() {
             toggle("Aus meinem Schreiben lernen", Store.getBool(context, "learn_on", true)) {
                 Store.putBool(context, "learn_on", it)
             }
+            numberSetting("Max. Vorschläge gleichzeitig (1–5)", "suggest_max", 3)
+            val hidden = engine.blockedCount()
+            if (hidden > 0) pill("$hidden ausgeblendete Vorschläge zurückholen") { engine.unblockAll(); render() }
+            label("Tipp: Einen Vorschlag lange drücken = nie mehr vorschlagen.", 12f, muted = true, topDp = 0)
             toggle("Antworten auf Nachrichten lernen", Store.getBool(context, "pairs_on", true)) {
                 Store.putBool(context, "pairs_on", it)
             }
@@ -71,6 +75,8 @@ class SuggestActivity : Activity() {
             "• Beim Tippen: Wort fertig schreiben und nächstes Wort vorschlagen – so, wie du schreibst.\n" +
                 "• Pro Person: Was du einer Person öfter schreibst, steht bei ihr weiter vorne.\n" +
                 "• ↩ Antwort-Paare: Schreibt sie „gute Nacht“, kommt das, was du ihr darauf sonst antwortest.\n" +
+                "• Emoji: Nach einem Wort kommt das Emoji, das du dieser Person am häufigsten schickst.\n" +
+                "• Tageszeit: Was du meist um diese Uhrzeit schreibst, steht weiter vorne.\n" +
                 "• Leeres Feld im Chat: deine häufigsten Antworten an genau diese Person.\n" +
                 "• Rote Chips: ganzer Satz, den du dieser Person schon geschrieben hast.\n" +
                 "• Am Anfang ist es leer. Nach ein paar Tagen Schreiben wird es spürbar besser.",

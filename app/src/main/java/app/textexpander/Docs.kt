@@ -87,6 +87,130 @@ object Docs {
         return shops.entries.firstOrNull { (k, _) -> Regex("(^|[^a-z])" + Regex.escape(k) + "([^a-z]|$)").containsMatchIn(n) }?.value
     }
 
+    private val amountRe = Regex("(\\d{1,5}(?:[.,]\\d{2}))\\s?(?:€|eur|euro)|(?:€|eur)\\s?(\\d{1,5}(?:[.,]\\d{2})?)", RegexOption.IGNORE_CASE)
+
+    /** Price in a file name like "Rechnung_49,99EUR.pdf" or "Beleg €129.pdf" → "49,99". */
+    fun amountIn(name: String): String? {
+        val m = amountRe.find(name) ?: return null
+        val v = m.groupValues[1].ifEmpty { m.groupValues[2] }
+        return v.replace('.', ',').takeIf { it.isNotEmpty() }
+    }
+
+    // ── Thumbnails ────────────────────────────────────────────────────────
+
+    /** Small preview for images and the first page of PDFs, cached. Call off the main thread. */
+    fun thumbnail(ctx: Context, d: Rec, sizePx: Int): android.graphics.Bitmap? {
+        val f = file(ctx, d)
+        if (!f.exists()) return null
+        val cache = File(ctx.cacheDir, "thumbs").apply { mkdirs() }
+        val cached = File(cache, f.name + ".png")
+        if (cached.exists()) return android.graphics.BitmapFactory.decodeFile(cached.path)
+        val mime = d["mime"].orEmpty()
+        val bmp: android.graphics.Bitmap? = try {
+            when {
+                mime.startsWith("image/") -> {
+                    val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeFile(f.path, o)
+                    var sample = 1
+                    while (o.outWidth / (sample * 2) >= sizePx && o.outHeight / (sample * 2) >= sizePx) sample *= 2
+                    android.graphics.BitmapFactory.decodeFile(f.path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+                }
+                mime == "application/pdf" -> {
+                    ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+                        android.graphics.pdf.PdfRenderer(pfd).use { r ->
+                            r.openPage(0).use { page ->
+                                val scale = sizePx.toFloat() / maxOf(page.width, page.height)
+                                val b = android.graphics.Bitmap.createBitmap(
+                                    maxOf(1, (page.width * scale).toInt()), maxOf(1, (page.height * scale).toInt()),
+                                    android.graphics.Bitmap.Config.ARGB_8888,
+                                )
+                                b.eraseColor(android.graphics.Color.WHITE)
+                                page.render(b, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                b
+                            }
+                        }
+                    }
+                }
+                else -> null
+            }
+        } catch (e: Throwable) { null }
+        if (bmp != null) {
+            val scaled = if (maxOf(bmp.width, bmp.height) > sizePx * 2) {
+                val sc = sizePx * 2f / maxOf(bmp.width, bmp.height)
+                android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width * sc).toInt().coerceAtLeast(1), (bmp.height * sc).toInt().coerceAtLeast(1), true)
+            } else bmp
+            try { cached.outputStream().use { scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, it) } } catch (e: Exception) { }
+            return scaled
+        }
+        return null
+    }
+
+    // ── ZIP backup of the vault ───────────────────────────────────────────
+
+    /** All vault files + their metadata + warranties in one ZIP. Returns number of files. */
+    fun exportZip(ctx: Context, uri: Uri): Int {
+        var n = 0
+        ctx.contentResolver.openOutputStream(uri, "wt")!!.use { out ->
+            java.util.zip.ZipOutputStream(out).use { zip ->
+                val meta = org.json.JSONObject()
+                    .put("app", "FlowKit-Tresor").put("version", 1)
+                    .put("docs", org.json.JSONArray().apply { all(ctx).forEach { put(org.json.JSONObject(it)) } })
+                    .put("warranties", org.json.JSONArray().apply { warranties(ctx).forEach { put(org.json.JSONObject(it)) } })
+                zip.putNextEntry(java.util.zip.ZipEntry("flowkit-tresor.json"))
+                zip.write(meta.toString(2).toByteArray())
+                zip.closeEntry()
+                for (d in all(ctx)) {
+                    val f = file(ctx, d)
+                    if (!f.exists()) continue
+                    zip.putNextEntry(java.util.zip.ZipEntry("dateien/" + f.name))
+                    f.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                    n++
+                }
+            }
+        }
+        return n
+    }
+
+    /** Restores a vault ZIP, merging with what's there (nothing is overwritten). Returns number added. */
+    fun importZip(ctx: Context, uri: Uri): Int {
+        val tmp = File(ctx.cacheDir, "zipimport").apply { deleteRecursively(); mkdirs() }
+        var metaText: String? = null
+        ctx.contentResolver.openInputStream(uri)!!.use { input ->
+            java.util.zip.ZipInputStream(input).use { zip ->
+                while (true) {
+                    val e = zip.nextEntry ?: break
+                    val name = e.name
+                    if (e.isDirectory || name.contains("..")) continue
+                    if (name == "flowkit-tresor.json") metaText = zip.readBytes().toString(Charsets.UTF_8)
+                    else if (name.startsWith("dateien/")) File(tmp, name.removePrefix("dateien/").substringAfterLast('/')).outputStream().use { zip.copyTo(it) }
+                }
+            }
+        }
+        val meta = org.json.JSONObject(metaText ?: throw IllegalArgumentException("Das ist keine FlowKit-Tresor-Sicherung."))
+        require(meta.optString("app") == "FlowKit-Tresor") { "Das ist keine FlowKit-Tresor-Sicherung." }
+        val have = all(ctx).mapNotNull { it["id"] }.toSet()
+        val added = ArrayList<Rec>()
+        val arr = meta.optJSONArray("docs") ?: org.json.JSONArray()
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            val rec = o.keys().asSequence().associateWith { o.optString(it) }
+            if (rec["id"] in have) continue
+            val src = File(tmp, rec["file"].orEmpty())
+            if (!src.exists()) continue
+            src.copyTo(File(dir(ctx), src.name), overwrite = true)
+            added += rec
+        }
+        if (added.isNotEmpty()) Store.save(ctx, "docs", all(ctx) + added)
+        val haveW = warranties(ctx).mapNotNull { it["id"] }.toSet()
+        val wArr = meta.optJSONArray("warranties") ?: org.json.JSONArray()
+        val newW = (0 until wArr.length()).map { i -> val o = wArr.getJSONObject(i); o.keys().asSequence().associateWith { o.optString(it) } }
+            .filter { it["id"] !in haveW }
+        if (newW.isNotEmpty()) Store.save(ctx, "warranties", warranties(ctx) + newW)
+        tmp.deleteRecursively()
+        return added.size
+    }
+
     /** Same file already in the vault? (name + size) */
     fun duplicateOf(ctx: Context, name: String, size: Long): Rec? =
         all(ctx).firstOrNull { it["name"] == name && it["size"]?.toLongOrNull() == size }
@@ -152,6 +276,7 @@ object Docs {
     }
 
     fun delete(ctx: Context, d: Rec) {
+        File(File(ctx.cacheDir, "thumbs"), file(ctx, d).name + ".png").delete()
         file(ctx, d).delete()
         Store.save(ctx, "docs", all(ctx).filter { it["id"] != d["id"] })
     }

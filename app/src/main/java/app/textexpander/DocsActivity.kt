@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -23,6 +24,8 @@ class DocsActivity : Activity() {
         const val REQ_PICK = 51
         const val REQ_TREE = 52
         const val REQ_RECEIPT = 53
+        const val REQ_ZIP_OUT = 54
+        const val REQ_ZIP_IN = 55
     }
 
     private var tab = "docs"
@@ -33,6 +36,8 @@ class DocsActivity : Activity() {
     private var finds: List<DocScanner.Find>? = null
     private var scanning = false
     private var pendingReceiptFor: Rec? = null
+    /** Ids of documents selected for a bulk action (empty = normal mode). */
+    private val selected = LinkedHashSet<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,10 +100,25 @@ class DocsActivity : Activity() {
         for (k in Docs.cats) if (k.id in used) cats.chip("${k.icon} ${k.title}", catFilter == k.id) { catFilter = k.id; fillDocs() }
         hs.addView(cats)
         c.addView(hs)
-        c.label("Tipp: In jeder App „Teilen → FlowKit“ speichert PDFs, Fotos und Screenshots direkt hier.", 12f, muted = true)
+        c.label("Tipp: In jeder App „Teilen → FlowKit“ speichert PDFs, Fotos und Screenshots direkt hier. Lange drücken = auswählen.", 12f, muted = true)
+        selBar = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        c.addView(selBar)
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         c.addView(list)
         fillDocs()
+        c.section("Tresor sichern")
+        c.row {
+            pill("💾 Als ZIP sichern") {
+                @Suppress("DEPRECATION")
+                startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("application/zip").putExtra(Intent.EXTRA_TITLE, "flowkit-tresor-${LocalDate.now()}.zip"), REQ_ZIP_OUT)
+            }
+            pill("ZIP einlesen") {
+                @Suppress("DEPRECATION")
+                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQ_ZIP_IN)
+            }
+        }
+        c.label("Enthält alle Dateien, Notizen und Garantien – z. B. auf Google Drive ablegen. Beim Einlesen wird nur ergänzt, nichts überschrieben.", 12f, muted = true)
     }
 
     private fun fillDocs() {
@@ -108,31 +128,101 @@ class DocsActivity : Activity() {
             .filter { query.isBlank() || listOf(it["title"], it["name"], it["note"], it["date"], Docs.cat(it["cat"]).title).any { v -> v?.contains(query, true) == true } }
             .sortedByDescending { Docs.parseDate(it["date"]) ?: Docs.parseDate(it["added"]) }
         if (docs.isEmpty()) list.label(if (Docs.all(this).isEmpty()) "Noch leer. Füge eine Datei hinzu oder lass FlowKit im Tab „Gefunden“ suchen." else "Nichts gefunden.", 13f, muted = true, topDp = 16)
+        drawSelectionBar(docs)
+        val thumbSize = dp(56)
         for (d in docs) {
             val k = Docs.cat(d["cat"])
             val expiry = Docs.daysUntil(d["expiry"])
-            list.card {
-                label("${k.icon} ${k.title.uppercase()}", 11f, muted = true, mono = true, topDp = 0)
-                label(d["title"].orEmpty(), 16f, bold = true, topDp = 0)
+            val id = d["id"].orEmpty()
+            val isSel = id in selected
+            val card = list.card {
+                if (isSel) background = context.rounded(Look.card(context), 18, Look.ACCENT)
+                val rowBox = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+                val thumb = ImageView(context).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    background = context.rounded(Look.line(context), 10)
+                    clipToOutline = true
+                }
+                rowBox.addView(thumb, LinearLayout.LayoutParams(thumbSize, thumbSize).apply { setMargins(0, dp(4), dp(12), 0) })
+                val textBox = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+                rowBox.addView(textBox, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                addView(rowBox)
+                Thread {
+                    val bmp = Docs.thumbnail(this@DocsActivity, d, thumbSize)
+                    main.post { if (bmp != null) thumb.setImageBitmap(bmp) }
+                }.start()
+                textBox.label((if (isSel) "✓ " else "") + "${k.icon} ${k.title.uppercase()}", 11f, muted = true, mono = true, topDp = 0)
+                textBox.label(d["title"].orEmpty(), 16f, bold = true, topDp = 0)
                 val meta = buildString {
                     append(d["name"]); append(" · "); append(Docs.sizeText(d["size"]?.toLongOrNull() ?: 0))
                     append(" · "); append(d["date"]?.takeIf { it.isNotBlank() }?.let { "vom $it" } ?: "gespeichert ${d["added"]}")
                     if (expiry != null) append(if (expiry < 0) "\n⛔ abgelaufen (${d["expiry"]})" else if (expiry < 60) "\n⚠️ läuft ab in $expiry Tagen (${d["expiry"]})" else "\ngültig bis ${d["expiry"]}")
                     if (!d["note"].isNullOrBlank()) append("\n").append(d["note"])
                 }
-                label(meta, 12f, muted = true).apply { maxLines = 4; ellipsize = TextUtils.TruncateAt.END }
-            }.apply {
-                isClickable = true
-                setOnClickListener { Docs.open(this@DocsActivity, d) }
-                setOnLongClickListener { docMenu(d); true }
+                textBox.label(meta, 12f, muted = true).apply { maxLines = 4; ellipsize = TextUtils.TruncateAt.END }
+            }
+            card.isClickable = true
+            card.setOnClickListener {
+                if (selected.isNotEmpty()) { toggle(id) } else Docs.open(this@DocsActivity, d)
+            }
+            card.setOnLongClickListener {
+                if (selected.isEmpty()) docMenu(d) else toggle(id)
+                true
             }
         }
     }
 
+    private lateinit var selBar: LinearLayout
+
+    private fun toggle(id: String) {
+        if (!selected.remove(id)) selected += id
+        fillDocs()
+    }
+
+    /** Bulk actions for the selected documents. */
+    private fun drawSelectionBar(visible: List<Rec>) {
+        selBar.removeAllViews()
+        if (selected.isEmpty()) return
+        val chosen = Docs.all(this).filter { it["id"] in selected }
+        selBar.card {
+            label("${chosen.size} ausgewählt", 15f, bold = true, topDp = 0)
+            row {
+                chip("Alle") { visible.forEach { v -> v["id"]?.let { selected += it } }; fillDocs() }
+                chip("Teilen") { shareMany(chosen) }
+                chip("Kategorie") { pickCategory { cat -> chosen.forEach { Docs.update(this@DocsActivity, it, it + ("cat" to cat)) }; selected.clear(); fillDocs() } }
+                chip("Löschen") {
+                    AlertDialog.Builder(this@DocsActivity).setTitle("${chosen.size} Dokumente löschen?")
+                        .setPositiveButton("Löschen") { _, _ -> chosen.forEach { Docs.delete(this@DocsActivity, it) }; selected.clear(); render() }
+                        .setNegativeButton("Abbrechen", null).show()
+                }
+                chip("✕") { selected.clear(); fillDocs() }
+            }
+        }
+    }
+
+    private fun shareMany(docs: List<Rec>) {
+        if (docs.isEmpty()) return
+        if (docs.size == 1) { Docs.share(this, docs[0]); return }
+        val uris = ArrayList(docs.map { Docs.contentUri(this, it) })
+        val clip = android.content.ClipData.newRawUri(docs[0]["title"], uris[0])
+        uris.drop(1).forEach { clip.addItem(android.content.ClipData.Item(it)) }
+        val i = Intent(Intent.ACTION_SEND_MULTIPLE).setType("*/*")
+            .putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        i.clipData = clip
+        startActivity(Intent.createChooser(i, "${docs.size} Dokumente teilen"))
+    }
+
+    private fun pickCategory(then: (String) -> Unit) {
+        AlertDialog.Builder(this).setTitle("Kategorie")
+            .setItems(Docs.cats.map { "${it.icon} ${it.title}" }.toTypedArray()) { _, i -> then(Docs.cats[i].id) }.show()
+    }
+
     private fun docMenu(d: Rec) {
-        val opts = arrayOf("Öffnen", "Teilen", "Bearbeiten", "Garantie dazu anlegen", "Löschen")
+        val opts = arrayOf("Öffnen", "Teilen", "Bearbeiten", "Garantie dazu anlegen", "Löschen", "Mehrere auswählen")
         AlertDialog.Builder(this).setTitle(d["title"]).setItems(opts) { _, i ->
             when (i) {
+                5 -> toggle(d["id"].orEmpty())
                 0 -> Docs.open(this, d)
                 1 -> Docs.share(this, d)
                 2 -> editDoc(d)
@@ -306,7 +396,7 @@ class DocsActivity : Activity() {
             ?: prefillDoc?.get("date")?.takeIf { it.isNotBlank() }
             ?: prefillDoc?.get("added") ?: LocalDate.now().format(Docs.DATE), "TT.MM.JJJJ")
         val months = field("Garantie (Monate)", w?.get("months") ?: "24", number = true)
-        val price = field("Preis (optional)", w?.get("price").orEmpty(), "€", number = true)
+        val price = field("Preis (optional)", w?.get("price") ?: prefillDoc?.get("name")?.let { Docs.amountIn(it) }.orEmpty(), "€")
         val note = field("Notiz / Seriennummer", w?.get("note").orEmpty())
         var docId = w?.get("doc") ?: prefillDoc?.get("id")
         box.label("Kaufbeleg", 12f, muted = true, topDp = 12)
@@ -370,6 +460,19 @@ class DocsActivity : Activity() {
                 }.start()
             }
             REQ_TREE -> data.data?.let { DocScanner.addRoot(this, it); finds = null; tab = "finds"; render() }
+            REQ_ZIP_OUT -> data.data?.let { u ->
+                toast("Sichere …")
+                Thread {
+                    val msg = try { "${Docs.exportZip(this, u)} Dateien gesichert ✅" } catch (e: Exception) { "Fehler: ${e.message}" }
+                    main.post { toast(msg) }
+                }.start()
+            }
+            REQ_ZIP_IN -> data.data?.let { u ->
+                Thread {
+                    val msg = try { "${Docs.importZip(this, u)} Dokumente wiederhergestellt" } catch (e: Exception) { "Fehler: ${e.message}" }
+                    main.post { toast(msg); render() }
+                }.start()
+            }
             REQ_RECEIPT -> {
                 val u = data.data ?: return
                 val p = pendingReceiptFor ?: return

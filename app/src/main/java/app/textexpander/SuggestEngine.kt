@@ -31,6 +31,8 @@ class SuggestEngine private constructor(private val app: Context) {
         val bi = HashMap<String, HashMap<String, Int>>()
         val msgs = HashMap<String, Msg>()
         val pairs = ArrayList<PairRec>()
+        /** Emojis you send this person, with counts. */
+        val emo = HashMap<String, Int>()
         var last = 0L
     }
 
@@ -103,6 +105,7 @@ class SuggestEngine private constructor(private val app: Context) {
             }
         }
 
+        if (sent) for (e in emojisIn(text)) inc(c.emo, e)
         if (sent) {
             val t = text.trim()
             if (t.length in 2..300) {
@@ -207,6 +210,45 @@ class SuggestEngine private constructor(private val app: Context) {
 
     @Synchronized
     fun suggest(before: String, key: String, title: String = "", incoming: String? = null): List<Suggestion> {
+        val max = maxChips()
+        val out = suggestCore(before, key, title, incoming).filter { !isBlocked(it.insert) }.take(max).toMutableList()
+        // Their favourite emoji, once you've finished a word: "… schlaf gut" → ❤️
+        val c = ctxs[key]
+        if (out.size < max && c != null && before.isNotBlank() && before.endsWith(" ")) {
+            val top = c.emo.entries.filter { it.value >= 2 && !isBlocked(it.key) }.maxByOrNull { it.value }?.key
+            if (top != null && !before.trimEnd().endsWith(top)) out += Suggestion(top, top, 0)
+        }
+        return out
+    }
+
+    // ── Hidden suggestions & chip count (settings) ────────────────────────
+
+    private fun blocked(): Set<String> = Store.getStr(app, "sugg_blocked", "").split('\n').filter { it.isNotEmpty() }.toSet()
+    private fun isBlocked(insert: String) = insert.trim().lowercase() in blocked()
+    fun block(insert: String) = Store.putStr(app, "sugg_blocked", (blocked() + insert.trim().lowercase()).joinToString("\n"))
+    fun blockedCount() = blocked().size
+    fun unblockAll() = Store.putStr(app, "sugg_blocked", "")
+    private fun maxChips() = Store.getInt(app, "suggest_max", 3).coerceIn(1, 5)
+
+    /** Emojis in a text (single code points, keeping a following variation selector like in ❤️). */
+    private fun emojisIn(text: String): List<String> {
+        val out = ArrayList<String>()
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            val len = Character.charCount(cp)
+            val isEmoji = cp in 0x1F000..0x1FAFF || (cp in 0x2600..0x27BF && Character.getType(cp) == Character.OTHER_SYMBOL.toInt())
+            if (isEmoji) {
+                var e = String(Character.toChars(cp))
+                if (i + len < text.length && text[i + len] == '\uFE0F') e += '\uFE0F'
+                if (cp !in 0x1F3FB..0x1F3FF) out += e   // skip lone skin-tone modifiers
+            }
+            i += len
+        }
+        return out
+    }
+
+    private fun suggestCore(before: String, key: String, title: String, incoming: String?): List<Suggestion> {
         val c = ctxs[key]
         val out = ArrayList<Suggestion>()
 
@@ -282,7 +324,7 @@ class SuggestEngine private constructor(private val app: Context) {
         ctxs[key]?.msgs?.values?.sortedByDescending { msgScore(it) }?.forEach {
             out.putIfAbsent(it.text.lowercase(), Suggestion(short(it.text), it.text, 0))
         }
-        return out.values.take(4)
+        return out.values.filter { !isBlocked(it.insert) }.take(maxChips())
     }
 
     // ── Info & management (settings screen) ───────────────────────────────
@@ -355,6 +397,7 @@ class SuggestEngine private constructor(private val app: Context) {
                     put("uni", counts(c.uni))
                     put("bi", nested(c.bi))
                     put("pairs", pairsJson(c.pairs))
+                    put("emo", counts(c.emo))
                     put("msgs", JSONArray().apply {
                         c.msgs.values.forEach { m -> put(JSONObject().put("t", m.text).put("n", m.n).put("l", m.last).put("h", m.hours)) }
                     })
@@ -398,6 +441,7 @@ class SuggestEngine private constructor(private val app: Context) {
                     readCounts(o.optJSONObject("uni"), c.uni)
                     readNested(o.optJSONObject("bi"), c.bi)
                     readPairs(o.optJSONArray("pairs"), c.pairs)
+                    readCounts(o.optJSONObject("emo"), c.emo)
                     o.optJSONArray("msgs")?.let { arr ->
                         for (i in 0 until arr.length()) {
                             val m = arr.getJSONObject(i)
